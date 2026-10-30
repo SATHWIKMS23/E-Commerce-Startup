@@ -9,12 +9,9 @@ services:
     command:
       - sh
       - -c
-      - >
-        if [ -n "$$REDIS_PASSWORD" ]; then
-          exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 96mb --maxmemory-policy allkeys-lru --save "" --appendonly no
-        else
-          exec redis-server --maxmemory 96mb --maxmemory-policy allkeys-lru --save "" --appendonly no
-        fi
+      - |
+        : "$${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+        exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 96mb --maxmemory-policy allkeys-lru --save "" --appendonly no
     healthcheck:
       test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG; else redis-cli ping | grep -q PONG; fi"]
       interval: 5s
