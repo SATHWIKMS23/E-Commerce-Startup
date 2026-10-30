@@ -446,7 +446,7 @@ export const logout = async (req: Request, res: Response) => {
             where: { userId: sellerId, userType: "SELLER", revoked: false },
             data: { revoked: true }
         });
-        disconnectActorSockets(sellerId, "Logged out");
+        disconnectActorSockets(sellerId, "Logged out", "SELLER");
     }
 
     return res.status(200).json({

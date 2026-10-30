@@ -129,7 +129,7 @@ export const logout = async (req: Request, res: Response) => {
                 where: { userId: req.adminId, userType: "ADMIN", revoked: false },
                 data: { revoked: true }
             });
-            disconnectActorSockets(req.adminId, "Logged out");
+            disconnectActorSockets(req.adminId, "Logged out", "ADMIN");
         }
         return res.status(200).json({ message: "Logged out successfully" });
     } catch (error: any) {

@@ -602,7 +602,7 @@ export const logout = async (req: Request, res: Response) => {
             where: { userId: customerId, userType: "CUSTOMER", revoked: false },
             data: { revoked: true }
         });
-        disconnectActorSockets(customerId, "Logged out");
+        disconnectActorSockets(customerId, "Logged out", "CUSTOMER");
     }
 
     return res.status(200).json({

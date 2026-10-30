@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { ConversationType, ConversationStatus, MessageSenderType } from "@prisma/client";
 import { prisma } from "../../../config/prisma.js";
-import { broadcastToConversation, broadcastToAdmins } from "../../../services/chat/chat.service.js";
+import { broadcastToConversation, broadcastToAdmins, broadcastReadReceipt } from "../../../services/chat/chat.service.js";
 
 // ─── GET /customer/api/conversations ─────────────────────────────────────────
 
@@ -309,6 +309,14 @@ export const markCustomerConversationRead = async (req: Request, res: Response) 
         const customerId = req.customerId!;
         const id = String(req.params.id);
 
+        const conv = await prisma.conversation.findUnique({
+            where: { id },
+            select: { customerId: true }
+        });
+        if (!conv || conv.customerId !== customerId) {
+            return res.status(403).json({ message: "Unauthorized for this conversation" });
+        }
+
         await prisma.conversationReadReceipt.upsert({
             where: {
                 conversationId_readerType_readerId: {
@@ -325,6 +333,8 @@ export const markCustomerConversationRead = async (req: Request, res: Response) 
                 lastReadAt: new Date()
             }
         });
+
+        broadcastReadReceipt(id, "CUSTOMER", customerId).catch(() => {});
 
         return res.status(200).json({ success: true });
     } catch (error: any) {

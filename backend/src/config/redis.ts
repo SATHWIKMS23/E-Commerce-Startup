@@ -21,7 +21,7 @@ function buildClient(label: string): RedisClientType {
     });
 
     client.on('error', (err) => {
-        logger.error(`[Redis:${label}] Error:`, err?.message ?? err);
+        logger.error(`[Redis:${label}] Error:`, { error: err?.message ?? String(err) });
     });
 
     client.on('connect', () => {
@@ -104,17 +104,43 @@ export function getRedisSubscriber(): RedisClientType | null {
 }
 
 /**
- * Checks whether the primary Redis client is open and ready to process commands.
+ * Checks whether the primary Redis client socket is open.
+ * Note: An open socket does not guarantee Redis readiness to accept commands.
  */
-export function isRedisReady(): boolean {
+export function isRedisOpen(): boolean {
     return Boolean(primaryClient && primaryClient.isOpen);
 }
 
 /**
- * Checks whether the subscriber Redis client is open and ready.
+ * Checks whether the subscriber Redis client socket is open.
+ */
+export function isSubscriberOpen(): boolean {
+    return Boolean(subscriberClient && subscriberClient.isOpen);
+}
+
+/**
+ * Checks whether the primary Redis client is open and ready to process commands.
+ */
+export function isRedisReady(): boolean {
+    return Boolean(primaryClient && primaryClient.isReady);
+}
+
+/**
+ * Checks whether the subscriber Redis client is open and ready to receive pub/sub commands.
  */
 export function isSubscriberReady(): boolean {
-    return Boolean(subscriberClient && subscriberClient.isOpen);
+    return Boolean(subscriberClient && subscriberClient.isReady);
+}
+
+/**
+ * Allows injecting mock or test Redis clients during unit and integration tests.
+ */
+export function setRedisClientsForTesting(
+    client: RedisClientType | null,
+    subscriber: RedisClientType | null
+): void {
+    primaryClient = client;
+    subscriberClient = subscriber;
 }
 
 /**

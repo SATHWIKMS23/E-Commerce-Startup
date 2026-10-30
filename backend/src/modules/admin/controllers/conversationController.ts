@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { ConversationType, ConversationStatus, MessageSenderType, Prisma } from "@prisma/client";
 import { prisma } from "../../../config/prisma.js";
-import { broadcastToConversation, broadcastToAdmins } from "../../../services/chat/chat.service.js";
+import { broadcastToConversation, broadcastToAdmins, broadcastReadReceipt } from "../../../services/chat/chat.service.js";
 import { notificationService } from "../../../services/notification/notification.service.js";
 
 // ─── GET /api/admin/conversations/unread-counts ──────────────────────────────
@@ -237,20 +237,8 @@ export const getConversationDetail = async (req: Request, res: Response) => {
             }
         });
 
-        // Broadcast read receipt to room
-        broadcastToConversation(id, {
-            type: "read_receipt",
-            conversationId: id,
-            readerType: "ADMIN",
-            readerId: adminId,
-            readAt: new Date().toISOString()
-        });
-
-        // Broadcast unread counts update to all admins
-        broadcastToAdmins({
-            type: "unread_counts_update",
-            conversationId: id
-        });
+        // Broadcast read receipt to room and unread counts update to all admins
+        broadcastReadReceipt(id, "ADMIN", adminId).catch(() => {});
 
         return res.status(200).json({ conversation: { ...conversation, unreadCount: 0 } });
     } catch (error: any) {
@@ -283,18 +271,8 @@ export const markConversationRead = async (req: Request, res: Response) => {
             }
         });
 
-        broadcastToConversation(id, {
-            type: "read_receipt",
-            conversationId: id,
-            readerType: "ADMIN",
-            readerId: adminId,
-            readAt: new Date().toISOString()
-        });
-
-        broadcastToAdmins({
-            type: "unread_counts_update",
-            conversationId: id
-        });
+        // Broadcast read receipt to room and unread counts update to all admins
+        broadcastReadReceipt(id, "ADMIN", adminId).catch(() => {});
 
         return res.status(200).json({ success: true });
     } catch (error: any) {
