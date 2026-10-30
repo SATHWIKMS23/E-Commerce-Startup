@@ -36,7 +36,6 @@ services:
       HOST: 0.0.0.0
       PORT: "3001"
       CUSTOMER_PORT: "3001"
-      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
     ports:
       - "127.0.0.1:3001:3001"
     depends_on:
@@ -57,7 +56,6 @@ services:
       HOST: 0.0.0.0
       PORT: "3002"
       SELLER_PORT: "3002"
-      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
     ports:
       - "127.0.0.1:3002:3002"
     depends_on:
@@ -77,7 +75,6 @@ services:
     environment:
       PORT: "3003"
       ADMIN_PORT: "3003"
-      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
     ports:
       - "127.0.0.1:3003:3003"
     depends_on:
@@ -97,7 +94,6 @@ services:
     environment:
       PORT: "3004"
       DELIVERY_PORT: "3004"
-      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
     ports:
       - "127.0.0.1:3004:3004"
     depends_on:
@@ -117,7 +113,6 @@ services:
     environment:
       PORT: "3005"
       PAYMENT_PORT: "3005"
-      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
     ports:
       - "127.0.0.1:3005:3005"
     depends_on:
