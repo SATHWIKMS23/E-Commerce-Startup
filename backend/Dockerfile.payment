@@ -8,7 +8,7 @@ ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 ENV DIRECT_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public
 COPY package*.json tsconfig.json ./
 COPY prisma ./prisma/
-RUN npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=600000
+RUN --mount=type=cache,target=/root/.npm npm ci --maxsockets=2 --no-audit --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=600000
 COPY src ./src
 COPY *.ts ./
 RUN npx prisma generate
@@ -21,7 +21,7 @@ ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 ENV DIRECT_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --only=production --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=600000
+RUN --mount=type=cache,target=/root/.npm npm ci --only=production --maxsockets=2 --no-audit --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=600000
 COPY --from=builder /app/dist ./dist
 RUN npx prisma generate
 
