@@ -16,7 +16,8 @@
     "start:admin": "node dist/admin.server.js",
     "start:delivery": "node dist/delivery.server.js",
     "start:payment": "node dist/payment.server.js",
-    "test": "node ./tests/runTests.cjs && node ./tests/logger.test.cjs && node ./tests/productionAudit.test.cjs && node ./tests/enforcementAndFinancial.test.cjs && node ./tests/platformFeeAndMessaging.test.cjs && node ./tests/centralizedBranding.test.cjs && node ./tests/separateCustomerAndSellerBranding.test.cjs && node ./tests/authAndSessionSync.test.cjs && node ./tests/conversationAndInboxSync.test.cjs && node ./tests/shopOnboardingAndAgreements.test.cjs && node ./tests/onDemandWebSocketAndMessaging.test.cjs"
+    "test": "node ./tests/runTests.cjs && node ./tests/logger.test.cjs && node ./tests/productionAudit.test.cjs && node ./tests/enforcementAndFinancial.test.cjs && node ./tests/platformFeeAndMessaging.test.cjs && node ./tests/centralizedBranding.test.cjs && node ./tests/separateCustomerAndSellerBranding.test.cjs && node ./tests/authAndSessionSync.test.cjs && node ./tests/conversationAndInboxSync.test.cjs && node ./tests/shopOnboardingAndAgreements.test.cjs && node ./tests/onDemandWebSocketAndMessaging.test.cjs && node ./tests/redisAndWebSocketCrossProcess.test.cjs",
+    "test:redis": "node ./tests/redisAndWebSocketCrossProcess.test.cjs"
   },
   "prisma": {
     "schema": "prisma/"
@@ -61,6 +62,7 @@
     "prisma": "^6.19.3",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
+    "redis": "^6.3.1",
     "resend": "^6.16.0",
     "typescript": "^5.7.3",
     "ws": "^8.22.0",

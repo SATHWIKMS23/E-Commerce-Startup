@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../../config/prisma.js";
 import { getJwtSecret, verifyAccessToken } from "../../config/token.js";
 import { MessageSenderType, ConversationType, NotificationType } from "@prisma/client";
+import { initRedis, getRedisClient, getRedisSubscriber, isSubscriberReady } from "../../config/redis.js";
 
 export interface AuthenticatedClient {
     ws: WebSocket;
@@ -15,6 +16,18 @@ export interface AuthenticatedClient {
 }
 
 const clients = new Map<WebSocket, AuthenticatedClient>();
+
+// Unique Process ID to prevent duplicate loopback broadcasts across Redis Pub/Sub
+const PROCESS_ID = `proc_${process.pid}_${Math.random().toString(36).substring(2, 9)}`;
+export const WS_REDIS_CHANNEL = "atlasbasket:ws:events";
+
+export function getProcessId(): string {
+    return PROCESS_ID;
+}
+
+export function getConnectedClientCount(): number {
+    return clients.size;
+}
 
 // Helper to authenticate token
 async function authenticateToken(
@@ -115,12 +128,88 @@ function extractCookie(cookieHeader: string | undefined, name: string): string |
 }
 
 let wssInstance: WebSocketServer | null = null;
+let isSubscribed = false;
+
+/**
+ * Publishes an event to the Redis Pub/Sub bus for cross-process distribution.
+ * Catches any Redis communication errors safely so local operations remain unaffected.
+ */
+export async function publishWSEvent(eventData: Record<string, any>): Promise<void> {
+    try {
+        const client = getRedisClient();
+        if (client && client.isOpen) {
+            await client.publish(WS_REDIS_CHANNEL, JSON.stringify(eventData));
+        }
+    } catch (err: any) {
+        console.warn(`[WS:Redis] Publish event failed: ${err?.message ?? err}`);
+    }
+}
+
+/**
+ * Handles incoming events distributed from other API processes via Redis Pub/Sub.
+ */
+export function handleIncomingRedisEvent(rawMessage: string): void {
+    try {
+        const event = JSON.parse(rawMessage);
+        if (!event || event.originProcessId === PROCESS_ID) {
+            // Discard event originating from our own process to prevent duplicate broadcasts
+            return;
+        }
+
+        switch (event.eventType) {
+            case "CONVERSATION_BROADCAST":
+                broadcastLocalConversation(event.conversationId, event.payload, event.isInternal);
+                break;
+            case "ADMIN_BROADCAST":
+                broadcastLocalAdmins(event.payload);
+                break;
+            case "NOTIFICATION_BROADCAST":
+                deliverLocalNotification(event.recipientType, event.recipientId, event.notification);
+                break;
+            case "DISCONNECT_ACTOR":
+                disconnectLocalActor(event.actorId, event.reason);
+                break;
+        }
+    } catch (err: any) {
+        console.warn("[WS:Redis] Error processing received event:", err?.message ?? err);
+    }
+}
+
+/**
+ * Subscribes to the shared Redis Pub/Sub channel.
+ */
+export async function subscribeToRedisChatEvents(): Promise<void> {
+    if (isSubscribed) return;
+
+    const subscriber = getRedisSubscriber();
+    if (!subscriber) return;
+
+    try {
+        if (!subscriber.isOpen) {
+            await subscriber.connect().catch(() => {});
+        }
+        if (subscriber.isOpen) {
+            await subscriber.subscribe(WS_REDIS_CHANNEL, (rawMessage: string) => {
+                handleIncomingRedisEvent(rawMessage);
+            });
+            isSubscribed = true;
+            console.log(`[WS:Redis] Process ${PROCESS_ID} subscribed to ${WS_REDIS_CHANNEL}`);
+        }
+    } catch (err: any) {
+        console.warn(`[WS:Redis] Subscription error: ${err?.message ?? err}`);
+    }
+}
 
 export function setupChatWebSocketServer(httpServer: HttpServer) {
     if (wssInstance) return wssInstance;
 
     const wss = new WebSocketServer({ server: httpServer, path: "/ws/chat" });
     wssInstance = wss;
+
+    // Initialize Redis and subscribe for cross-process WebSocket events
+    initRedis()
+        .then(() => subscribeToRedisChatEvents())
+        .catch((err) => console.warn(`[WS] Redis setup warning: ${err?.message ?? err}`));
 
     // Heartbeat ping interval - bounded protocol health check
     // Only runs checks when active clients exist and unrefs so it never prevents natural process sleep
@@ -360,7 +449,7 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
                             });
                         }
 
-                        // Broadcast message to subscribed clients
+                        // Broadcast message to subscribed clients locally and across processes via Redis Pub/Sub
                         broadcastToConversation(conversationId, {
                             type: "new_message",
                             conversationId,
@@ -485,11 +574,13 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
         });
     });
 
-    console.log("[WS] Chat WebSocket Server initialized on /ws/chat");
+    console.log(`[WS] Chat WebSocket Server initialized on /ws/chat (Process: ${PROCESS_ID})`);
     return wss;
 }
 
-export function broadcastToAdmins(payload: any, excludeWs?: WebSocket) {
+// ─── Local Process Delivery Helpers ──────────────────────────────────────────
+
+function broadcastLocalAdmins(payload: any, excludeWs?: WebSocket): void {
     const raw = JSON.stringify(payload);
     for (const [ws, client] of clients.entries()) {
         if (ws !== excludeWs && ws.readyState === WebSocket.OPEN && client.actorType === "ADMIN") {
@@ -502,16 +593,16 @@ export function broadcastToAdmins(payload: any, excludeWs?: WebSocket) {
     }
 }
 
-export function broadcastToConversation(
+function broadcastLocalConversation(
     conversationId: string,
     payload: any,
     isInternal: boolean = false,
     excludeWs?: WebSocket
-) {
+): void {
     const raw = JSON.stringify(payload);
     for (const [ws, client] of clients.entries()) {
         if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) {
-            // Internal messages only go to ADMIN
+            // Internal messages strictly delivered only to ADMIN actors
             if (isInternal && client.actorType !== "ADMIN") continue;
 
             if (client.subscribedConversations.has(conversationId)) {
@@ -525,7 +616,7 @@ export function broadcastToConversation(
     }
 }
 
-export function disconnectActorSockets(actorId: string, reason: string = "Session expired") {
+function disconnectLocalActor(actorId: string, reason: string = "Session expired"): void {
     if (!actorId) return;
     for (const [ws, client] of clients.entries()) {
         if (client.actorId === actorId) {
@@ -542,11 +633,11 @@ export function disconnectActorSockets(actorId: string, reason: string = "Sessio
     }
 }
 
-export function sendRealtimeNotification(
-    recipientType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER",
+function deliverLocalNotification(
+    recipientType: string,
     recipientId: string,
     notification: any
-) {
+): void {
     if (!recipientId) return;
     const raw = JSON.stringify({
         type: "notification",
@@ -567,3 +658,84 @@ export function sendRealtimeNotification(
     }
 }
 
+// ─── Public Cross-Process Broadcasters ───────────────────────────────────────
+
+/**
+ * Broadcasts an event to all connected admin clients locally and publishes
+ * to Redis so admin clients connected to other processes also receive it.
+ */
+export function broadcastToAdmins(payload: any, excludeWs?: WebSocket): void {
+    // 1. Deliver locally
+    broadcastLocalAdmins(payload, excludeWs);
+
+    // 2. Publish to Redis Pub/Sub for cross-process delivery
+    publishWSEvent({
+        eventType: "ADMIN_BROADCAST",
+        originProcessId: PROCESS_ID,
+        payload
+    }).catch(() => {});
+}
+
+/**
+ * Broadcasts an event to all participants subscribed to a conversation room locally
+ * and publishes to Redis for cross-process distribution.
+ */
+export function broadcastToConversation(
+    conversationId: string,
+    payload: any,
+    isInternal: boolean = false,
+    excludeWs?: WebSocket
+): void {
+    // 1. Deliver locally
+    broadcastLocalConversation(conversationId, payload, isInternal, excludeWs);
+
+    // 2. Publish to Redis Pub/Sub for cross-process delivery
+    publishWSEvent({
+        eventType: "CONVERSATION_BROADCAST",
+        originProcessId: PROCESS_ID,
+        conversationId,
+        payload,
+        isInternal
+    }).catch(() => {});
+}
+
+/**
+ * Terminates all active WebSocket connections for a specific actor across all API processes.
+ */
+export function disconnectActorSockets(actorId: string, reason: string = "Session expired"): void {
+    if (!actorId) return;
+
+    // 1. Disconnect local sockets
+    disconnectLocalActor(actorId, reason);
+
+    // 2. Publish to Redis Pub/Sub so other processes disconnect this actor's sockets
+    publishWSEvent({
+        eventType: "DISCONNECT_ACTOR",
+        originProcessId: PROCESS_ID,
+        actorId,
+        reason
+    }).catch(() => {});
+}
+
+/**
+ * Delivers a real-time notification to a specific actor across all API processes.
+ */
+export function sendRealtimeNotification(
+    recipientType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER",
+    recipientId: string,
+    notification: any
+): void {
+    if (!recipientId) return;
+
+    // 1. Deliver locally
+    deliverLocalNotification(recipientType, recipientId, notification);
+
+    // 2. Publish to Redis Pub/Sub for cross-process delivery
+    publishWSEvent({
+        eventType: "NOTIFICATION_BROADCAST",
+        originProcessId: PROCESS_ID,
+        recipientType,
+        recipientId,
+        notification
+    }).catch(() => {});
+}

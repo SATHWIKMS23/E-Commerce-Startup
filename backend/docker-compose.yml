@@ -25,6 +25,22 @@ services:
     networks:
       - app-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: marketplace-redis
+    restart: always
+    command: ["redis-server", "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 128m
+    # Private container: no host port mapped, accessible only through private app-network
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   migrate:
     build:
       context: .
@@ -36,6 +52,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@db:5432/${POSTGRES_DB:-marketplace}?schema=public
       # Local docker Postgres has no pooler, so the direct URL equals DATABASE_URL.
       DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@db:5432/${POSTGRES_DB:-marketplace}?schema=public
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set in .env}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       PAYMENT_GATEWAY: ${PAYMENT_GATEWAY:-RAZORPAY}
@@ -71,6 +88,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
       interval: 30s
@@ -94,6 +113,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/health"]
       interval: 30s
@@ -117,6 +138,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3003/health"]
       interval: 30s

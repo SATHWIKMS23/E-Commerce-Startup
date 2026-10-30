@@ -11,6 +11,7 @@ import http from 'http';
 import express from 'express';
 import { configureMiddlewares, configureErrorHandlers } from './src/app.js';
 import { prisma } from './src/config/prisma.js';
+import { closeRedis } from './src/config/redis.js';
 
 // Seller routes
 import sellerAuth from './src/modules/seller/routes/authroute.js';
@@ -110,6 +111,12 @@ const gracefulShutdown = (signal: string) => {
     console.log(`Received ${signal}. Starting graceful shutdown...`);
     server.close(async () => {
         console.log("HTTP server closed.");
+        try {
+            await closeRedis();
+            console.log("Redis disconnected.");
+        } catch (err) {
+            console.error("Error during Redis disconnect:", err);
+        }
         try {
             await prisma.$disconnect();
             console.log("Prisma disconnected.");

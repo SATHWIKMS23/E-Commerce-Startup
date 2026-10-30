@@ -54,6 +54,21 @@ export const validateEnv = () => {
     if (!process.env.RESEND_API_KEY) missing.push('RESEND_API_KEY');
     if (!process.env.EMAIL_FROM) missing.push('EMAIL_FROM');
 
+    if (process.env.REDIS_URL) {
+        try {
+            const parsed = new URL(process.env.REDIS_URL);
+            if (!['redis:', 'rediss:'].includes(parsed.protocol)) {
+                console.error("FATAL: Invalid REDIS_URL protocol. Expected redis:// or rediss://");
+                process.exit(1);
+            }
+        } catch {
+            console.error("FATAL: Malformed REDIS_URL provided.");
+            process.exit(1);
+        }
+    } else if (isProduction) {
+        console.warn("[EnvValidator] Notice: REDIS_URL not configured. Shared caching and cross-process Pub/Sub will run in fallback mode.");
+    }
+
     if (missing.length > 0) {
         console.error(`FATAL: Missing required environment variables on startup: ${missing.join(', ')}`);
         process.exit(1);
