@@ -1,0 +1,132 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: atlasbasket-vm-redis
+    restart: unless-stopped
+    mem_limit: 128m
+    env_file:
+      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+    command:
+      - sh
+      - -c
+      - >
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 96mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+        else
+          exec redis-server --maxmemory 96mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+        fi
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG; else redis-cli ping | grep -q PONG; fi"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - atlasbasket-vm-net
+
+  customer-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.customer
+    container_name: atlasbasket-vm-customer-api
+    restart: unless-stopped
+    env_file:
+      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3001"
+      CUSTOMER_PORT: "3001"
+      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atlasbasket-vm-net
+
+  seller-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.seller
+    container_name: atlasbasket-vm-seller-api
+    restart: unless-stopped
+    env_file:
+      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3002"
+      SELLER_PORT: "3002"
+      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
+    ports:
+      - "127.0.0.1:3002:3002"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atlasbasket-vm-net
+
+  admin-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    container_name: atlasbasket-vm-admin-api
+    restart: unless-stopped
+    env_file:
+      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+    environment:
+      PORT: "3003"
+      ADMIN_PORT: "3003"
+      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
+    ports:
+      - "127.0.0.1:3003:3003"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atlasbasket-vm-net
+
+  delivery-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.delivery
+    container_name: atlasbasket-vm-delivery-api
+    restart: unless-stopped
+    env_file:
+      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+    environment:
+      PORT: "3004"
+      DELIVERY_PORT: "3004"
+      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
+    ports:
+      - "127.0.0.1:3004:3004"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atlasbasket-vm-net
+
+  payment-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.payment
+    container_name: atlasbasket-vm-payment-api
+    restart: unless-stopped
+    env_file:
+      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+    environment:
+      PORT: "3005"
+      PAYMENT_PORT: "3005"
+      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379}
+    ports:
+      - "127.0.0.1:3005:3005"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atlasbasket-vm-net
+
+networks:
+  atlasbasket-vm-net:
+    external: true
+    name: atlasbasket-vm-net
