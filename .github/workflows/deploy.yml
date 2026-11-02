@@ -1,0 +1,65 @@
+name: AtlasBasket Production CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# Prevent concurrent production deployments; queue subsequent runs
+concurrency:
+  group: production-backend-deploy
+  cancel-in-progress: false
+
+# Restrict permissions to read-only repository contents
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & Deploy Backend
+    runs-on: [self-hosted, atlasbasket-prod]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Verify VM Environment & Secrets
+        run: |
+          echo "============================================================"
+          echo " Pre-Flight Environment Validation"
+          echo " Target Host: AtlasBasket VM (192.168.122.90)"
+          echo "============================================================"
+
+          SECRETS_PATH="/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env"
+          if [ ! -f "$SECRETS_PATH" ]; then
+            echo "::error::Production environment file missing at $SECRETS_PATH"
+            exit 1
+          fi
+          echo "[OK] Production environment file verified."
+
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker daemon is not accessible. Verify user permissions."
+            exit 1
+          fi
+          echo "[OK] Docker daemon is responsive."
+
+          if ! docker network inspect atlasbasket-vm-net > /dev/null 2>&1; then
+            echo "External network 'atlasbasket-vm-net' not found; creating it..."
+            docker network create atlasbasket-vm-net
+          fi
+          echo "[OK] Docker network 'atlasbasket-vm-net' ready."
+
+      - name: Deploy Backend Services
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          chmod +x backend/scripts/deploy.sh
+          chmod +x backend/scripts/rollback.sh
+          bash backend/scripts/deploy.sh
+

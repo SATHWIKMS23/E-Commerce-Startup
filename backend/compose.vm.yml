@@ -22,6 +22,7 @@ services:
       - atlasbasket-vm-net
 
   customer-api:
+    image: atlasbasket-customer-api:latest
     build:
       context: .
       dockerfile: Dockerfile.customer
@@ -34,14 +35,21 @@ services:
       PORT: "3001"
       CUSTOMER_PORT: "3001"
     ports:
-      - "127.0.0.1:3001:3001"
+      - "0.0.0.0:3001:3001"
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - atlasbasket-vm-net
 
   seller-api:
+    image: atlasbasket-seller-api:latest
     build:
       context: .
       dockerfile: Dockerfile.seller
@@ -54,14 +62,21 @@ services:
       PORT: "3002"
       SELLER_PORT: "3002"
     ports:
-      - "127.0.0.1:3002:3002"
+      - "0.0.0.0:3002:3002"
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - atlasbasket-vm-net
 
   admin-api:
+    image: atlasbasket-admin-api:latest
     build:
       context: .
       dockerfile: Dockerfile.admin
@@ -70,17 +85,25 @@ services:
     env_file:
       - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
     environment:
+      HOST: 0.0.0.0
       PORT: "3003"
       ADMIN_PORT: "3003"
     ports:
-      - "127.0.0.1:3003:3003"
+      - "0.0.0.0:3003:3003"
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - atlasbasket-vm-net
 
   delivery-api:
+    image: atlasbasket-delivery-api:latest
     build:
       context: .
       dockerfile: Dockerfile.delivery
@@ -89,17 +112,25 @@ services:
     env_file:
       - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
     environment:
+      HOST: 0.0.0.0
       PORT: "3004"
       DELIVERY_PORT: "3004"
     ports:
-      - "127.0.0.1:3004:3004"
+      - "0.0.0.0:3004:3004"
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3004/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - atlasbasket-vm-net
 
   payment-api:
+    image: atlasbasket-payment-api:latest
     build:
       context: .
       dockerfile: Dockerfile.payment
@@ -108,13 +139,20 @@ services:
     env_file:
       - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
     environment:
+      HOST: 0.0.0.0
       PORT: "3005"
       PAYMENT_PORT: "3005"
     ports:
-      - "127.0.0.1:3005:3005"
+      - "0.0.0.0:3005:3005"
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - atlasbasket-vm-net
 

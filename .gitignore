@@ -1,0 +1,50 @@
+# ==============================================================================
+# Environment & Secrets (Crucial: Never commit production credentials or keys)
+# ==============================================================================
+.env
+.env.*
+*.env
+*.env.local
+*.env.development
+*.env.test
+*.env.production
+/secrets/
+secrets/
+.secrets/
+*.pem
+*.key
+*.crt
+*.cert
+*.pfx
+*.p12
+
+# Playwright & Testing artifacts
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+playwright.config.ts
+playwright-report
+tests
+package-lock.json
+package.json
+
+# ==============================================================================
+# Documentation & Scratch Files
+# ==============================================================================
+Documentation
+todos.txt
+SECURITY-AUDIT-REPORT.md
+info.txt
+
+# ==============================================================================
+# Operating System & IDE Files
+# ==============================================================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
