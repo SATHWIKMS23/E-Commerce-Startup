@@ -14,13 +14,17 @@ concurrency:
   group: production-backend-deploy
   cancel-in-progress: false
 
-# Restrict permissions to read-only repository contents
+# Minimal permissions: read-only repository contents
 permissions:
   contents: read
 
 jobs:
   deploy:
     name: Build & Deploy Backend
+    # Protect production environment with GitHub Environment approval gates
+    environment: production
+    # Security restriction: Only run for the official repository and main branch / authorized dispatch
+    if: github.repository == 'STARTUP-GIT/E-Commerce-Startup' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, atlasbasket-prod]
     timeout-minutes: 30
 
@@ -54,18 +58,19 @@ jobs:
           fi
           echo "[OK] Docker network 'atlasbasket-vm-net' ready."
 
-          # Verify unmanaged infrastructure dependencies are active
-          if docker ps --format '{{.Names}}' | grep -q "^atlasbasket-postgres$"; then
-            echo "[OK] PostgreSQL container 'atlasbasket-postgres' is running."
-          else
-            echo "::warning::PostgreSQL container 'atlasbasket-postgres' is not running!"
+          # Verify unmanaged infrastructure dependencies are active.
+          # Missing PostgreSQL or Redis is a deployment-blocking failure.
+          if ! docker ps --format '{{.Names}}' | grep -q "^atlasbasket-postgres$"; then
+            echo "::error::Pre-flight failure: Required container 'atlasbasket-postgres' is not running! Deployment blocked to protect data integrity."
+            exit 1
           fi
+          echo "[OK] PostgreSQL container 'atlasbasket-postgres' is active."
 
-          if docker ps --format '{{.Names}}' | grep -q "^atlasbasket-vm-redis$"; then
-            echo "[OK] Redis container 'atlasbasket-vm-redis' is running."
-          else
-            echo "::warning::Redis container 'atlasbasket-vm-redis' is not running!"
+          if ! docker ps --format '{{.Names}}' | grep -q "^atlasbasket-vm-redis$"; then
+            echo "::error::Pre-flight failure: Required container 'atlasbasket-vm-redis' is not running! Deployment blocked to protect caching/session integrity."
+            exit 1
           fi
+          echo "[OK] Redis container 'atlasbasket-vm-redis' is active."
 
       - name: Execute Safe Production Deployment
         env:
