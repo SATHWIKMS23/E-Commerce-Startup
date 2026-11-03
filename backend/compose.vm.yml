@@ -1,26 +1,16 @@
-services:
-  redis:
-    image: redis:7-alpine
-    container_name: atlasbasket-vm-redis
-    restart: unless-stopped
-    mem_limit: 128m
-    env_file:
-      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
-    command:
-      - sh
-      - -c
-      - |
-        : "$${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
-        exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 96mb --maxmemory-policy allkeys-lru --save "" --appendonly no
-    healthcheck:
-      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG; else redis-cli ping | grep -q PONG; fi"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
-    networks:
-      - atlasbasket-vm-net
+# ==============================================================================
+# AtlasBasket Production Compose Specification
+# Host: AtlasBasket VM (atlasbasket-virtual-machine / 192.168.122.90)
+#
+# Declarative service specification for the 5 backend APIs.
+# Infrastructure dependencies (atlasbasket-postgres and atlasbasket-vm-redis)
+# run independently on the external network 'atlasbasket-vm-net' and must NOT
+# be managed or recreated by this Compose file.
+# ==============================================================================
 
+name: atlasbasket
+
+services:
   customer-api:
     image: atlasbasket-customer-api:latest
     build:
@@ -36,9 +26,6 @@ services:
       CUSTOMER_PORT: "3001"
     ports:
       - "0.0.0.0:3001:3001"
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
       interval: 15s
@@ -63,9 +50,6 @@ services:
       SELLER_PORT: "3002"
     ports:
       - "0.0.0.0:3002:3002"
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
       interval: 15s
@@ -90,9 +74,6 @@ services:
       ADMIN_PORT: "3003"
     ports:
       - "0.0.0.0:3003:3003"
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]
       interval: 15s
@@ -117,9 +98,6 @@ services:
       DELIVERY_PORT: "3004"
     ports:
       - "0.0.0.0:3004:3004"
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3004/health || exit 1"]
       interval: 15s
@@ -144,9 +122,6 @@ services:
       PAYMENT_PORT: "3005"
     ports:
       - "0.0.0.0:3005:3005"
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/health || exit 1"]
       interval: 15s
@@ -159,4 +134,3 @@ services:
 networks:
   atlasbasket-vm-net:
     external: true
-    name: atlasbasket-vm-net

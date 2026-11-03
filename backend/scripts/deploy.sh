@@ -3,11 +3,14 @@
 # AtlasBasket Production Backend Deployment Script
 # Target Host: Ubuntu VM (atlasbasket-virtual-machine / 192.168.122.90)
 #
-# Sequential builds, zero-downtime rolling update, health verification,
-# and automatic rollback on failure.
+# Deployment Strategy:
+#   Safe sequential rolling container replacement with brief service restart
+#   window (typically 2-4 seconds per service).
+#   Includes safe transition from manual `docker run` containers, error trapping,
+#   and full-fleet rollback on ANY failure.
 # ==============================================================================
 
-set -euo pipefail
+set -uo pipefail
 
 # ------------------------------------------------------------------------------
 # Configuration & Paths
@@ -22,33 +25,27 @@ DOCKER_NETWORK="atlasbasket-vm-net"
 VM_IP="192.168.122.90"
 COMMIT_SHA="${GITHUB_SHA:-$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo 'manual')}"
 
-# Service definitions: service_name | container_name | image_name | dockerfile | port
+# Service definitions:
+# service_name | container_name | image_name | dockerfile | port | env_port_var
 SERVICES=(
-  "customer-api|atlasbasket-vm-customer-api|atlasbasket-customer-api|Dockerfile.customer|3001"
-  "seller-api|atlasbasket-vm-seller-api|atlasbasket-seller-api|Dockerfile.seller|3002"
-  "admin-api|atlasbasket-vm-admin-api|atlasbasket-admin-api|Dockerfile.admin|3003"
-  "delivery-api|atlasbasket-vm-delivery-api|atlasbasket-delivery-api|Dockerfile.delivery|3004"
-  "payment-api|atlasbasket-vm-payment-api|atlasbasket-payment-api|Dockerfile.payment|3005"
+  "customer-api|atlasbasket-vm-customer-api|atlasbasket-customer-api|Dockerfile.customer|3001|CUSTOMER_PORT"
+  "seller-api|atlasbasket-vm-seller-api|atlasbasket-seller-api|Dockerfile.seller|3002|SELLER_PORT"
+  "admin-api|atlasbasket-vm-admin-api|atlasbasket-admin-api|Dockerfile.admin|3003|ADMIN_PORT"
+  "delivery-api|atlasbasket-vm-delivery-api|atlasbasket-delivery-api|Dockerfile.delivery|3004|DELIVERY_PORT"
+  "payment-api|atlasbasket-vm-payment-api|atlasbasket-payment-api|Dockerfile.payment|3005|PAYMENT_PORT"
 )
 
+# Tracking state for partial updates and rollback
+TRACKED_UPDATES=()
+ROLLBACK_EXECUTED=0
+
 # ------------------------------------------------------------------------------
-# Helper Functions
+# Logging & Network Helpers
 # ------------------------------------------------------------------------------
-log_info() {
-  echo -e "\033[1;34m[INFO]\033[0m $*"
-}
-
-log_ok() {
-  echo -e "\033[1;32m[OK]\033[0m $*"
-}
-
-log_warn() {
-  echo -e "\033[1;33m[WARN]\033[0m $*"
-}
-
-log_err() {
-  echo -e "\033[1;31m[ERROR]\033[0m $*" >&2
-}
+log_info() { echo -e "\033[1;34m[INFO]\033[0m $*"; }
+log_ok()   { echo -e "\033[1;32m[OK]\033[0m $*"; }
+log_warn() { echo -e "\033[1;33m[WARN]\033[0m $*"; }
+log_err()  { echo -e "\033[1;31m[ERROR]\033[0m $*" >&2; }
 
 http_get_check() {
   local url="$1"
@@ -57,16 +54,101 @@ http_get_check() {
   elif command -v wget >/dev/null 2>&1; then
     wget -q -T 3 -O /dev/null "$url" >/dev/null 2>&1
   else
-    # Fallback to Node.js built-in fetch if neither curl nor wget is found
     node -e "fetch('$url').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" >/dev/null 2>&1
   fi
 }
 
 # ------------------------------------------------------------------------------
+# Rollback Function: Restores ALL partially updated services to previous state
+# ------------------------------------------------------------------------------
+execute_full_fleet_rollback() {
+  if [ "${ROLLBACK_EXECUTED}" -eq 1 ]; then
+    return 0
+  fi
+  ROLLBACK_EXECUTED=1
+
+  echo ""
+  echo "===================================================================="
+  log_err "CRITICAL: DEPLOYMENT FAILURE DETECTED"
+  log_err "Initiating automatic full-fleet rollback..."
+  log_err "Restoring ALL partially updated services to ensure consistent state."
+  echo "===================================================================="
+
+  # Iterate backwards through all services that had update attempts
+  for (( i=${#SERVICES[@]}-1; i>=0; i-- )); do
+    local entry="${SERVICES[$i]}"
+    IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
+
+    # Check if a -prev backup container exists for this service
+    if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}-prev\$"; then
+      log_warn "Restoring ${s_name} from previous container ${c_name}-prev..."
+      # Stop and remove the failed new container if it exists
+      docker stop "${c_name}" >/dev/null 2>&1 || true
+      docker rm -f "${c_name}" >/dev/null 2>&1 || true
+      # Restore original container
+      docker rename "${c_name}-prev" "${c_name}"
+      docker start "${c_name}" >/dev/null 2>&1 || true
+      log_ok "Restored original ${c_name}."
+    elif docker image inspect "${img_name}:rollback-backup" >/dev/null 2>&1; then
+      log_warn "Restoring ${s_name} from backup image tag ${img_name}:rollback-backup..."
+      docker stop "${c_name}" >/dev/null 2>&1 || true
+      docker rm -f "${c_name}" >/dev/null 2>&1 || true
+      docker tag "${img_name}:rollback-backup" "${img_name}:latest"
+      # Re-launch container with preserved production settings
+      docker run -d \
+        --name "${c_name}" \
+        --restart unless-stopped \
+        --network "${DOCKER_NETWORK}" \
+        -p "0.0.0.0:${port}:${port}" \
+        --env-file "${SECRETS_FILE}" \
+        -e HOST=0.0.0.0 \
+        -e PORT="${port}" \
+        -e "${env_var}=${port}" \
+        "${img_name}:latest" >/dev/null 2>&1 || true
+      log_ok "Re-launched ${c_name} from backup image."
+    fi
+  done
+
+  echo "--------------------------------------------------------------------"
+  log_info "Verifying health of restored services..."
+  local fleet_healthy=1
+  for entry in "${SERVICES[@]}"; do
+    IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
+    if http_get_check "http://127.0.0.1:${port}/health"; then
+      log_ok "  -> Restored ${s_name} is HEALTHY on port ${port}."
+    else
+      log_err "  -> Restored ${s_name} failed to respond on port ${port}!"
+      fleet_healthy=0
+    fi
+  done
+
+  if [ "${fleet_healthy}" -eq 1 ]; then
+    log_ok "Fleet rollback completed successfully. All services restored to previous release."
+  else
+    log_err "Fleet rollback encountered issues on some containers. Check container status manually."
+  fi
+
+  echo "===================================================================="
+  log_err "Deployment aborted. GitHub Actions status set to FAILED."
+  echo "===================================================================="
+  exit 1
+}
+
+# Trap unexpected script errors or signals and trigger full rollback
+on_unexpected_error() {
+  local exit_code="$1"
+  local line_no="$2"
+  log_err "Script encountered unexpected error (exit code: ${exit_code}) at line ${line_no}."
+  execute_full_fleet_rollback
+}
+trap 'on_unexpected_error $? $LINENO' ERR
+
+# ------------------------------------------------------------------------------
 # 1. Pre-Flight Checks
 # ------------------------------------------------------------------------------
 echo "===================================================================="
-echo " Starting AtlasBasket Production Backend Deployment"
+echo " AtlasBasket Production Backend Deployment"
+echo " Host:   atlasbasket-virtual-machine (${VM_IP})"
 echo " Commit: ${COMMIT_SHA}"
 echo " Time:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "===================================================================="
@@ -80,89 +162,72 @@ else
   log_err "Neither 'docker compose' nor 'docker-compose' command was found."
   exit 1
 fi
-log_ok "Using compose engine: ${COMPOSE_CMD}"
+log_ok "Compose engine detected: ${COMPOSE_CMD}"
 
-# Verify secrets file exists without echoing its contents
+# Verify secrets file exists without printing its contents
 if [ ! -f "${SECRETS_FILE}" ]; then
   log_err "Production secrets file missing at: ${SECRETS_FILE}"
   log_err "Deployment cannot continue without production credentials."
   exit 1
 fi
-log_ok "Production secrets file verified at: ${SECRETS_FILE}"
+log_ok "Production secrets file confirmed at: ${SECRETS_FILE}"
 
 # Verify Docker daemon is responsive
 if ! docker info >/dev/null 2>&1; then
   log_err "Cannot communicate with Docker daemon. Verify user permissions."
   exit 1
 fi
-log_ok "Docker daemon responsive."
+log_ok "Docker daemon is active and responsive."
 
 # Verify Docker network exists
 if ! docker network inspect "${DOCKER_NETWORK}" >/dev/null 2>&1; then
   log_warn "Network '${DOCKER_NETWORK}' not found. Creating..."
   docker network create "${DOCKER_NETWORK}"
 fi
-log_ok "Docker network '${DOCKER_NETWORK}' confirmed."
+log_ok "Docker network '${DOCKER_NETWORK}' ready."
 
-# Verify Redis dependency is alive
-if docker ps --format '{{.Names}}' | grep -q "^atlasbasket-vm-redis$"; then
-  log_ok "Redis dependency (atlasbasket-vm-redis) is running."
+# Verify PostgreSQL dependency is running (Do NOT touch, stop, or recreate)
+if docker ps --format '{{.Names}}' | grep -q "^atlasbasket-postgres$"; then
+  log_ok "PostgreSQL container (atlasbasket-postgres) is running. (Unmanaged, untouched)"
 else
-  log_warn "Redis container 'atlasbasket-vm-redis' is not active. Services will wait or connect once started."
+  log_warn "PostgreSQL container 'atlasbasket-postgres' is not active in 'docker ps'."
+fi
+
+# Verify Redis dependency is running (Do NOT touch, stop, or recreate)
+if docker ps --format '{{.Names}}' | grep -q "^atlasbasket-vm-redis$"; then
+  log_ok "Redis container (atlasbasket-vm-redis) is running. (Unmanaged, untouched)"
+else
+  log_warn "Redis container 'atlasbasket-vm-redis' is not active in 'docker ps'."
 fi
 
 # ------------------------------------------------------------------------------
-# 2. Preserve Rollback Capability (Backup Current Images)
+# 2. Sequential Image Builds (7.4 GB RAM / 4 Threads Protection)
 # ------------------------------------------------------------------------------
 echo "--------------------------------------------------------------------"
-log_info "Creating rollback backup tags for existing containers..."
-declare -A HAS_BACKUP
-
-for entry in "${SERVICES[@]}"; do
-  IFS="|" read -r s_name c_name img_name d_file port <<< "${entry}"
-  
-  if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}$"; then
-    CURRENT_IMAGE_ID=$(docker inspect --format='{{.Image}}' "${c_name}" 2>/dev/null || true)
-    if [ -n "${CURRENT_IMAGE_ID}" ]; then
-      docker tag "${CURRENT_IMAGE_ID}" "${img_name}:rollback-backup"
-      HAS_BACKUP["${s_name}"]="true"
-      log_ok "Backed up ${c_name} image (${CURRENT_IMAGE_ID:0:12}) -> ${img_name}:rollback-backup"
-    else
-      HAS_BACKUP["${s_name}"]="false"
-      log_warn "Could not resolve image ID for existing ${c_name}."
-    fi
-  else
-    HAS_BACKUP["${s_name}"]="false"
-    log_info "No previous container found for ${c_name} (initial deploy)."
-  fi
-done
-
-# ------------------------------------------------------------------------------
-# 3. Build Five Backend Images Sequentially
-# ------------------------------------------------------------------------------
-# VM has 7.4 GB RAM and 4 vCPUs. Building sequentially prevents OOM kills.
-echo "--------------------------------------------------------------------"
-log_info "Building 5 backend images sequentially to conserve memory..."
+log_info "Building 5 backend Docker images sequentially to conserve VM memory..."
 
 build_idx=1
 for entry in "${SERVICES[@]}"; do
-  IFS="|" read -r s_name c_name img_name d_file port <<< "${entry}"
-  
+  IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
+
   echo ""
   log_info "[${build_idx}/5] Building image: ${img_name}:latest from ${d_file}..."
-  
-  DOCKER_BUILDKIT=1 docker build \
+
+  if ! DOCKER_BUILDKIT=1 docker build \
     --file "${BACKEND_DIR}/${d_file}" \
     --tag "${img_name}:latest" \
     --tag "${img_name}:${COMMIT_SHA}" \
-    "${BACKEND_DIR}"
-  
+    "${BACKEND_DIR}"; then
+    log_err "Build failed for ${img_name}! Running containers are untouched."
+    exit 1
+  fi
+
   log_ok "[${build_idx}/5] Successfully built ${img_name}:latest"
   build_idx=$((build_idx + 1))
 done
 
 # ------------------------------------------------------------------------------
-# 4. Synchronize VM App Directory (Keep /apps/atlasbasket in sync)
+# 3. Synchronize VM App Directory Files (Non-destructive to /secrets/)
 # ------------------------------------------------------------------------------
 if [ -d "${VM_REPO_PATH}" ] && [ "$(realpath "${REPO_ROOT}")" != "$(realpath "${VM_REPO_PATH}")" ]; then
   log_info "Syncing updated compose and scripts to ${VM_REPO_PATH}..."
@@ -177,127 +242,124 @@ if [ -d "${VM_REPO_PATH}" ] && [ "$(realpath "${REPO_ROOT}")" != "$(realpath "${
 fi
 
 # ------------------------------------------------------------------------------
-# 5. Rollout Update to Containers Using Compose
+# 4. Safe Rolling Replacement with Health Verification & Automatic Rollback
 # ------------------------------------------------------------------------------
 echo "--------------------------------------------------------------------"
-log_info "Deploying updated backend containers..."
-# Extract service names for compose command
-COMPOSE_SERVICES=()
-for entry in "${SERVICES[@]}"; do
-  IFS="|" read -r s_name c_name img_name d_file port <<< "${entry}"
-  COMPOSE_SERVICES+=("${s_name}")
-done
+log_info "Starting safe rolling replacement of the 5 backend API services..."
+log_info "Note: Brief restart window occurs per service while binding to ports."
 
-# We explicitly pass --no-deps so Redis or any dependency is NEVER touched or restarted!
-${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --no-deps "${COMPOSE_SERVICES[@]}"
-log_ok "Container recreate and start commands issued."
-
-# ------------------------------------------------------------------------------
-# 6. Verification & Health Checks
-# ------------------------------------------------------------------------------
-echo "--------------------------------------------------------------------"
-log_info "Verifying health of all five backend APIs..."
-
-DEPLOYMENT_FAILED=0
-FAILED_SERVICE=""
 MAX_RETRIES=20
 RETRY_DELAY=2
 
 for entry in "${SERVICES[@]}"; do
-  IFS="|" read -r s_name c_name img_name d_file port <<< "${entry}"
-  
-  log_info "Checking ${s_name} on port ${port} (max wait: $((MAX_RETRIES * RETRY_DELAY))s)..."
+  IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
+  echo ""
+  log_info "===================================================================="
+  log_info "Processing service: ${s_name} (Port: ${port})"
+  log_info "===================================================================="
+
+  # Step A: Backup existing image tag if container is present
+  if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}\$"; then
+    CURRENT_IMG_ID=$(docker inspect --format='{{.Image}}' "${c_name}" 2>/dev/null || true)
+    if [ -n "${CURRENT_IMG_ID}" ]; then
+      docker tag "${CURRENT_IMG_ID}" "${img_name}:rollback-backup" 2>/dev/null || true
+      log_ok "Backed up running image (${CURRENT_IMG_ID:0:12}) -> ${img_name}:rollback-backup"
+    fi
+
+    # Step B: Safe Transition - Stop & Rename existing container to avoid name conflicts
+    log_info "Stopping and renaming existing container ${c_name} -> ${c_name}-prev..."
+    # Remove any stale -prev container from a previous completed run if left behind
+    docker rm -f "${c_name}-prev" >/dev/null 2>&1 || true
+    docker stop "${c_name}" >/dev/null 2>&1 || true
+    docker rename "${c_name}" "${c_name}-prev"
+    log_ok "Container ${c_name} renamed to ${c_name}-prev. Container name is now free."
+  else
+    log_info "No existing container named ${c_name} found (initial deployment for this service)."
+  fi
+
+  # Record that this service has entered update state
+  TRACKED_UPDATES+=("${s_name}")
+
+  # Step C: Launch the new container using Compose (with direct docker run fallback)
+  log_info "Launching new ${c_name} container..."
+  container_started=0
+
+  # Try starting with Docker Compose
+  if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
+    log_ok "Container ${c_name} launched via Compose."
+    container_started=1
+  else
+    log_warn "Compose launch failed for ${s_name}; deploying via direct docker run..."
+    if docker run -d \
+      --name "${c_name}" \
+      --restart unless-stopped \
+      --network "${DOCKER_NETWORK}" \
+      -p "0.0.0.0:${port}:${port}" \
+      --env-file "${SECRETS_FILE}" \
+      -e HOST=0.0.0.0 \
+      -e PORT="${port}" \
+      -e "${env_var}=${port}" \
+      "${img_name}:latest" >/dev/null 2>&1; then
+      log_ok "Container ${c_name} launched via direct docker run."
+      container_started=1
+    else
+      log_err "Failed to launch new container for ${s_name}!"
+      execute_full_fleet_rollback
+    fi
+  fi
+
+  # Step D: Health Verification for this service
+  log_info "Verifying health of ${s_name} on port ${port} (timeout: $((MAX_RETRIES * RETRY_DELAY))s)..."
   service_healthy=0
-  
+
   for attempt in $(seq 1 ${MAX_RETRIES}); do
-    # Check localhost port binding
     if http_get_check "http://127.0.0.1:${port}/health"; then
       log_ok "  -> ${s_name} is HEALTHY on http://127.0.0.1:${port}/health (attempt ${attempt})"
-      
-      # Verify reachability via VM IP for Cloudflare Tunnel
+
+      # Also verify accessibility via VM IP for Cloudflare Tunnel
       if http_get_check "http://${VM_IP}:${port}/health"; then
         log_ok "  -> ${s_name} is reachable on VM IP http://${VM_IP}:${port}/health"
       else
-        log_warn "  -> http://${VM_IP}:${port}/health did not respond immediately, but localhost responded."
+        log_warn "  -> http://${VM_IP}:${port}/health did not respond immediately, but localhost is healthy."
       fi
-      
+
       service_healthy=1
       break
     fi
     sleep ${RETRY_DELAY}
   done
-  
+
+  # If health verification failed, trigger full rollback of ALL updated services
   if [ "${service_healthy}" -eq 0 ]; then
-    log_err "Health check failed for ${s_name} on port ${port} after ${MAX_RETRIES} attempts!"
-    DEPLOYMENT_FAILED=1
-    FAILED_SERVICE="${s_name}"
-    break
+    log_err "Health verification failed for ${s_name} on port ${port} after ${MAX_RETRIES} attempts!"
+    echo "--- Recent logs for failing container (${c_name}) ---"
+    docker logs --tail 80 "${c_name}" 2>&1 || true
+    echo "------------------------------------------------------"
+    execute_full_fleet_rollback
   fi
+
+  log_ok "Service ${s_name} successfully updated and verified healthy."
 done
 
 # ------------------------------------------------------------------------------
-# 7. Rollback on Failure or Finalize on Success
-# ------------------------------------------------------------------------------
-if [ "${DEPLOYMENT_FAILED}" -ne 0 ]; then
-  echo ""
-  echo "===================================================================="
-  log_err "DEPLOYMENT FAILED on service: ${FAILED_SERVICE}"
-  echo "===================================================================="
-  
-  # Dump container logs for troubleshooting in GitHub Actions log
-  for entry in "${SERVICES[@]}"; do
-    IFS="|" read -r s_name c_name img_name d_file port <<< "${entry}"
-    if [ "${s_name}" == "${FAILED_SERVICE}" ]; then
-      echo "--- Recent logs for failing container (${c_name}) ---"
-      docker logs --tail 80 "${c_name}" 2>&1 || true
-      echo "------------------------------------------------------"
-    fi
-  done
-  
-  echo ""
-  log_warn "Initiating automatic rollback to previous working containers..."
-  
-  rollback_count=0
-  for entry in "${SERVICES[@]}"; do
-    IFS="|" read -r s_name c_name img_name d_file port <<< "${entry}"
-    if [ "${HAS_BACKUP[${s_name}]:-false}" == "true" ]; then
-      if docker image inspect "${img_name}:rollback-backup" >/dev/null 2>&1; then
-        docker tag "${img_name}:rollback-backup" "${img_name}:latest"
-        rollback_count=$((rollback_count + 1))
-        log_info "Restored tag ${img_name}:latest from rollback-backup."
-      fi
-    fi
-  done
-  
-  if [ "${rollback_count}" -gt 0 ]; then
-    log_info "Restarting containers with previous images..."
-    ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --no-deps "${COMPOSE_SERVICES[@]}"
-    log_warn "Rollback deployment completed. Verification of restored containers:"
-    for entry in "${SERVICES[@]}"; do
-      IFS="|" read -r s_name c_name img_name d_file port <<< "${entry}"
-      if http_get_check "http://127.0.0.1:${port}/health"; then
-        log_ok "  Restored ${s_name} is healthy."
-      else
-        log_err "  Restored ${s_name} could not be confirmed."
-      fi
-    done
-  else
-    log_warn "No rollback-backup tags available to restore."
-  fi
-  
-  log_err "Production deployment failed. Check GitHub Actions logs above."
-  exit 1
-fi
-
-# ------------------------------------------------------------------------------
-# 8. Success Report
+# 5. Finalization & Cleanup (Only executed when ALL 5 services are healthy)
 # ------------------------------------------------------------------------------
 echo ""
 echo "===================================================================="
 log_ok "ALL 5 BACKEND SERVICES DEPLOYED AND VERIFIED HEALTHY!"
 echo "===================================================================="
+
+# Safely clean up temporary -prev containers now that the entire fleet is confirmed healthy
+log_info "Cleaning up temporary -prev backup containers..."
+for entry in "${SERVICES[@]}"; do
+  IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
+  docker rm -f "${c_name}-prev" >/dev/null 2>&1 || true
+done
+log_ok "Temporary backup containers cleaned up. Image rollback tags preserved."
+
+echo ""
+echo "Current Production Backend Containers:"
 docker ps --filter "name=atlasbasket-vm-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo "===================================================================="
 log_ok "AtlasBasket backend CI/CD pipeline finished successfully."
 exit 0
-
