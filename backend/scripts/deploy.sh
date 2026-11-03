@@ -31,6 +31,8 @@ DEPLOY_MANIFEST="${VM_REPO_PATH}/.deployment_manifest.json"
 LOCK_FILE="/tmp/atlasbasket-deploy.lock"
 DOCKER_NETWORK="atlasbasket-vm-net"
 VM_IP="192.168.122.90"
+HOST_BIND_IP="${HOST_BIND_IP:-192.168.122.90}"
+export HOST_BIND_IP
 COMMIT_SHA="${GITHUB_SHA:-$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo 'manual')}"
 
 # Service definitions:
@@ -210,6 +212,34 @@ if ! docker info >/dev/null 2>&1; then
 fi
 log_ok "Docker daemon is active and responsive."
 
+# Verify HOST_BIND_IP is assigned to the VM before deployment
+log_info "Verifying HOST_BIND_IP (${HOST_BIND_IP}) is assigned to this host..."
+IP_FOUND=0
+if command -v ip >/dev/null 2>&1; then
+  if ip -4 addr show 2>/dev/null | grep -qE "inet ${HOST_BIND_IP}(/|[[:space:]])"; then
+    IP_FOUND=1
+  fi
+fi
+
+if [ "${IP_FOUND}" -eq 0 ] && command -v hostname >/dev/null 2>&1; then
+  if hostname -I 2>/dev/null | grep -qw "${HOST_BIND_IP}"; then
+    IP_FOUND=1
+  fi
+fi
+
+if [ "${IP_FOUND}" -eq 0 ] && command -v ifconfig >/dev/null 2>&1; then
+  if ifconfig 2>/dev/null | grep -qw "${HOST_BIND_IP}"; then
+    IP_FOUND=1
+  fi
+fi
+
+if [ "${IP_FOUND}" -eq 0 ]; then
+  log_err "PREFLIGHT ERROR: HOST_BIND_IP (${HOST_BIND_IP}) is not assigned to any network interface on this VM!"
+  log_err "Deployment blocked: binding API ports to an unassigned IP will fail container creation."
+  exit 1
+fi
+log_ok "VM interface IP verified: ${HOST_BIND_IP} is active on this host."
+
 # Check available disk space (require >= 2048 MB free)
 AVAILABLE_MB=$(df -m "${BACKEND_DIR}" | awk 'NR==2 {print $4}')
 if [ "${AVAILABLE_MB}" -lt 2048 ]; then
@@ -365,7 +395,7 @@ for entry in "${SERVICES[@]}"; do
   log_info "Launching replacement ${c_name} with image tag ${COMMIT_SHA:0:12} via Compose..."
   SERVICE_STATE["${s_name}"]="REPLACEMENT_CREATING"
 
-  if ! IMAGE_TAG="${COMMIT_SHA}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
+  if ! HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="${COMMIT_SHA}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
     log_err "Docker Compose up failed for ${s_name}! Triggering rollback."
     execute_targeted_rollback
   fi
@@ -377,18 +407,18 @@ for entry in "${SERVICES[@]}"; do
   service_healthy=0
 
   for attempt in $(seq 1 ${MAX_RETRIES}); do
-    if http_get_check "http://127.0.0.1:${port}/health"; then
+    if http_get_check "http://${HOST_BIND_IP}:${port}/health" || http_get_check "http://127.0.0.1:${port}/health"; then
       STOP_END_TIME=$(date +%s)
       MEASURED_DOWNTIME=$(( STOP_END_TIME - STOP_START_TIME ))
 
-      log_ok "  -> ${s_name} is HEALTHY on http://127.0.0.1:${port}/health (attempt ${attempt})"
+      log_ok "  -> ${s_name} is HEALTHY on port ${port} (attempt ${attempt})"
       log_ok "  -> Measured service downtime interruption: ${MEASURED_DOWNTIME}s"
 
       # Also verify accessibility via VM IP for Cloudflare Tunnel
       if http_get_check "http://${VM_IP}:${port}/health"; then
         log_ok "  -> ${s_name} is reachable on VM IP http://${VM_IP}:${port}/health"
       else
-        log_warn "  -> http://${VM_IP}:${port}/health did not respond immediately, but localhost is healthy."
+        log_warn "  -> http://${VM_IP}:${port}/health did not respond immediately, but health check succeeded."
       fi
 
       service_healthy=1

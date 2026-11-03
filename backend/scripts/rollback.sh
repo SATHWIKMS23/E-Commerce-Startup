@@ -26,6 +26,8 @@ DEPLOY_MANIFEST="${VM_REPO_PATH}/.deployment_manifest.json"
 LOCK_FILE="/tmp/atlasbasket-deploy.lock"
 DOCKER_NETWORK="atlasbasket-vm-net"
 TARGET_TAG="${1:-rollback-backup}"
+HOST_BIND_IP="${HOST_BIND_IP:-192.168.122.90}"
+export HOST_BIND_IP
 
 SERVICES=(
   "customer-api|atlasbasket-vm-customer-api|atlasbasket-customer-api|3001|CUSTOMER_PORT"
@@ -122,7 +124,7 @@ for entry in "${SERVICES[@]}"; do
     docker stop "${c_name}" >/dev/null 2>&1 || true
     docker rm -f "${c_name}" >/dev/null 2>&1 || true
 
-    if IMAGE_TAG="${TARGET_TAG}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
+    if HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="${TARGET_TAG}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
       log_ok "  -> Re-launched ${c_name} via Compose with image tag '${TARGET_TAG}'."
       restored_count=$((restored_count + 1))
     else
@@ -146,7 +148,7 @@ sleep 2
 ALL_OK=1
 for entry in "${SERVICES[@]}"; do
   IFS="|" read -r s_name c_name img_name port env_var <<< "${entry}"
-  if http_get_check "http://127.0.0.1:${port}/health"; then
+  if http_get_check "http://${HOST_BIND_IP}:${port}/health" || http_get_check "http://127.0.0.1:${port}/health"; then
     log_ok "  ${s_name} is HEALTHY on port ${port}."
   else
     log_err "  ${s_name} did not respond on port ${port}."

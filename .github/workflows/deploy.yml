@@ -72,10 +72,30 @@ jobs:
           fi
           echo "[OK] Redis container 'atlasbasket-vm-redis' is active."
 
+          # Verify HOST_BIND_IP is assigned to VM network interfaces
+          HOST_BIND_IP="192.168.122.90"
+          IP_FOUND=0
+          if command -v ip >/dev/null 2>&1; then
+            if ip -4 addr show 2>/dev/null | grep -qE "inet ${HOST_BIND_IP}(/|[[:space:]])"; then
+              IP_FOUND=1
+            fi
+          fi
+          if [ "$IP_FOUND" -eq 0 ] && command -v hostname >/dev/null 2>&1; then
+            if hostname -I 2>/dev/null | grep -qw "$HOST_BIND_IP"; then
+              IP_FOUND=1
+            fi
+          fi
+          if [ "$IP_FOUND" -eq 0 ]; then
+            echo "::error::Pre-flight failure: Required IP $HOST_BIND_IP is not assigned to this VM! Deployment blocked."
+            exit 1
+          fi
+          echo "[OK] Host IP $HOST_BIND_IP verified on VM network interfaces."
+
       - name: Execute Safe Production Deployment
         env:
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_REF: ${{ github.ref }}
+          HOST_BIND_IP: "192.168.122.90"
         run: |
           chmod +x backend/scripts/deploy.sh
           chmod +x backend/scripts/rollback.sh

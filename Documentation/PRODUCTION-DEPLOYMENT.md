@@ -24,7 +24,7 @@ This document describes the canonical production deployment architecture, automa
 | Delivery API | `atlasbasket-vm-delivery-api` | `3004` | `3004` | `GET /health` (200 OK) |
 | Payment API | `atlasbasket-vm-payment-api` | `3005` | `3005` | `GET /health` (200 OK) |
 
-- **Cloudflare Tunnel Routing**: Cloudflare Tunnel on `serversforplan` connects across the internal network to `http://192.168.122.90:3001` to serve `api.atlasbasket.com`. Port bindings use `${HOST_BIND_IP:-0.0.0.0}` to remain accessible while respecting VM `DOCKER-USER` firewall rules.
+- **Cloudflare Tunnel Routing**: Cloudflare Tunnel on `serversforplan` connects across the internal network to `http://192.168.122.90:3001` to serve `api.atlasbasket.com`. Port bindings use `${HOST_BIND_IP:-192.168.122.90}` to restrict exposure specifically to the VM interface while respecting VM `DOCKER-USER` firewall rules.
 
 ---
 

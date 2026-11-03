@@ -26,7 +26,7 @@ services:
       PORT: "3001"
       CUSTOMER_PORT: "3001"
     ports:
-      - "${HOST_BIND_IP:-0.0.0.0}:3001:3001"
+      - "${HOST_BIND_IP:-192.168.122.90}:3001:3001"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
       interval: 15s
@@ -50,7 +50,7 @@ services:
       PORT: "3002"
       SELLER_PORT: "3002"
     ports:
-      - "${HOST_BIND_IP:-0.0.0.0}:3002:3002"
+      - "${HOST_BIND_IP:-192.168.122.90}:3002:3002"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
       interval: 15s
@@ -74,7 +74,7 @@ services:
       PORT: "3003"
       ADMIN_PORT: "3003"
     ports:
-      - "${HOST_BIND_IP:-0.0.0.0}:3003:3003"
+      - "${HOST_BIND_IP:-192.168.122.90}:3003:3003"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]
       interval: 15s
@@ -98,7 +98,7 @@ services:
       PORT: "3004"
       DELIVERY_PORT: "3004"
     ports:
-      - "${HOST_BIND_IP:-0.0.0.0}:3004:3004"
+      - "${HOST_BIND_IP:-192.168.122.90}:3004:3004"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3004/health || exit 1"]
       interval: 15s
@@ -122,7 +122,7 @@ services:
       PORT: "3005"
       PAYMENT_PORT: "3005"
     ports:
-      - "${HOST_BIND_IP:-0.0.0.0}:3005:3005"
+      - "${HOST_BIND_IP:-192.168.122.90}:3005:3005"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/health || exit 1"]
       interval: 15s
