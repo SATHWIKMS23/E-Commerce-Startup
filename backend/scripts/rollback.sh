@@ -7,19 +7,23 @@
 #   ./rollback.sh                     # Restores from -prev containers OR :rollback-backup images
 #   ./rollback.sh <COMMIT_SHA_OR_TAG> # Restores images tagged with a specific SHA/tag
 #
-# Works both during an active deployment (-prev exists) and post-deployment
-# (when -prev has been cleaned up and :rollback-backup is used).
+# Supports both:
+#   - Mid-deployment recovery: restores preserved -prev containers directly.
+#   - Post-deployment manual rollback: deploys :rollback-backup images via Compose.
 # ==============================================================================
 
 set -uo pipefail
 
 # ------------------------------------------------------------------------------
-# Configuration & Paths
+# 1. Configuration & Paths
 # ------------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${BACKEND_DIR}/compose.vm.yml"
 SECRETS_FILE="/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env"
+VM_REPO_PATH="/home/sathwik-atlasbasket/apps/atlasbasket"
+DEPLOY_MANIFEST="${VM_REPO_PATH}/.deployment_manifest.json"
+LOCK_FILE="/tmp/atlasbasket-deploy.lock"
 DOCKER_NETWORK="atlasbasket-vm-net"
 TARGET_TAG="${1:-rollback-backup}"
 
@@ -50,10 +54,22 @@ http_get_check() {
 echo "===================================================================="
 echo " AtlasBasket Production Manual Rollback Utility"
 echo " Target image tag / mode: '${TARGET_TAG}'"
-echo " Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+echo " Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "===================================================================="
 
-# Determine Docker Compose command
+# ------------------------------------------------------------------------------
+# 2. Acquire Exclusive Lock
+# ------------------------------------------------------------------------------
+exec 200>"${LOCK_FILE}"
+if ! flock -n 200; then
+  log_err "Another deployment or rollback is in progress (lock held on ${LOCK_FILE})."
+  exit 1
+fi
+log_ok "Exclusive lock acquired on ${LOCK_FILE}."
+
+# ------------------------------------------------------------------------------
+# 3. Pre-Flight Checks
+# ------------------------------------------------------------------------------
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -78,6 +94,9 @@ if ! docker ps --format '{{.Names}}' | grep -q "^atlasbasket-vm-redis$"; then
 fi
 log_ok "Redis container (atlasbasket-vm-redis) is running."
 
+# ------------------------------------------------------------------------------
+# 4. Rollback Execution
+# ------------------------------------------------------------------------------
 restored_count=0
 
 for entry in "${SERVICES[@]}"; do
@@ -97,48 +116,18 @@ for entry in "${SERVICES[@]}"; do
     continue
   fi
 
-  # Mode B: Post-deployment rollback (when -prev was removed, using target image tag)
+  # Mode B: Post-deployment rollback (using target image tag via Compose)
   if docker image inspect "${img_name}:${TARGET_TAG}" >/dev/null 2>&1; then
-    log_info "  -> Restoring image tag: ${img_name}:${TARGET_TAG} -> ${img_name}:latest"
-    
-    # Inspect running container to preserve runtime binds and network
-    EXISTING_BINDS=""
-    EXISTING_NET="${DOCKER_NETWORK}"
-    if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}\$"; then
-      EXISTING_NET=$(docker inspect --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' "${c_name}" 2>/dev/null || echo "${DOCKER_NETWORK}")
-      EXISTING_BINDS=$(docker inspect --format='{{range .HostConfig.Binds}}{{.}} {{end}}' "${c_name}" 2>/dev/null || echo "")
-    fi
-
-    docker tag "${img_name}:${TARGET_TAG}" "${img_name}:latest"
+    log_info "  -> Restoring via canonical Compose using image tag: ${img_name}:${TARGET_TAG}..."
     docker stop "${c_name}" >/dev/null 2>&1 || true
     docker rm -f "${c_name}" >/dev/null 2>&1 || true
 
-    # Construct volume arguments from inspected binds if present
-    VOLUME_FLAGS=()
-    if [ -n "${EXISTING_BINDS}" ]; then
-      for b in ${EXISTING_BINDS}; do
-        VOLUME_FLAGS+=("-v" "${b}")
-      done
-    fi
-
-    # Try starting with Compose first; fallback to docker run
-    if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
-      log_ok "  -> Re-launched ${c_name} via Compose."
+    if IMAGE_TAG="${TARGET_TAG}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
+      log_ok "  -> Re-launched ${c_name} via Compose with image tag '${TARGET_TAG}'."
+      restored_count=$((restored_count + 1))
     else
-      docker run -d \
-        --name "${c_name}" \
-        --restart unless-stopped \
-        --network "${EXISTING_NET}" \
-        -p "0.0.0.0:${port}:${port}" \
-        --env-file "${SECRETS_FILE}" \
-        -e HOST=0.0.0.0 \
-        -e PORT="${port}" \
-        -e "${env_var}=${port}" \
-        "${VOLUME_FLAGS[@]}" \
-        "${img_name}:latest" >/dev/null 2>&1 || true
-      log_ok "  -> Re-launched ${c_name} via direct docker run."
+      log_err "  -> Compose failed to re-launch ${c_name}!"
     fi
-    restored_count=$((restored_count + 1))
   else
     log_err "  -> Neither -prev container nor image '${img_name}:${TARGET_TAG}' was found!"
   fi

@@ -2,30 +2,31 @@
 # AtlasBasket Production Compose Specification
 # Host: AtlasBasket VM (atlasbasket-virtual-machine / 192.168.122.90)
 #
-# Declarative service specification for the 5 backend APIs.
-# Infrastructure dependencies (atlasbasket-postgres and atlasbasket-vm-redis)
-# run independently on the external network 'atlasbasket-vm-net' and must NOT
-# be managed or recreated by this Compose file.
+# Canonical deployment specification for the 5 backend API services.
+# External infrastructure dependencies:
+#   - PostgreSQL: container 'atlasbasket-postgres' (external, untouched)
+#   - Redis: container 'atlasbasket-vm-redis' (external, untouched)
+# Both run on the external Docker network 'atlasbasket-vm-net'.
 # ==============================================================================
 
 name: atlasbasket
 
 services:
   customer-api:
-    image: atlasbasket-customer-api:latest
+    image: atlasbasket-customer-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.customer
     container_name: atlasbasket-vm-customer-api
     restart: unless-stopped
     env_file:
-      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+      - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
     environment:
       HOST: 0.0.0.0
       PORT: "3001"
       CUSTOMER_PORT: "3001"
     ports:
-      - "0.0.0.0:3001:3001"
+      - "${HOST_BIND_IP:-0.0.0.0}:3001:3001"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
       interval: 15s
@@ -36,20 +37,20 @@ services:
       - atlasbasket-vm-net
 
   seller-api:
-    image: atlasbasket-seller-api:latest
+    image: atlasbasket-seller-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.seller
     container_name: atlasbasket-vm-seller-api
     restart: unless-stopped
     env_file:
-      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+      - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
     environment:
       HOST: 0.0.0.0
       PORT: "3002"
       SELLER_PORT: "3002"
     ports:
-      - "0.0.0.0:3002:3002"
+      - "${HOST_BIND_IP:-0.0.0.0}:3002:3002"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
       interval: 15s
@@ -60,20 +61,20 @@ services:
       - atlasbasket-vm-net
 
   admin-api:
-    image: atlasbasket-admin-api:latest
+    image: atlasbasket-admin-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.admin
     container_name: atlasbasket-vm-admin-api
     restart: unless-stopped
     env_file:
-      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+      - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
     environment:
       HOST: 0.0.0.0
       PORT: "3003"
       ADMIN_PORT: "3003"
     ports:
-      - "0.0.0.0:3003:3003"
+      - "${HOST_BIND_IP:-0.0.0.0}:3003:3003"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]
       interval: 15s
@@ -84,20 +85,20 @@ services:
       - atlasbasket-vm-net
 
   delivery-api:
-    image: atlasbasket-delivery-api:latest
+    image: atlasbasket-delivery-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.delivery
     container_name: atlasbasket-vm-delivery-api
     restart: unless-stopped
     env_file:
-      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+      - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
     environment:
       HOST: 0.0.0.0
       PORT: "3004"
       DELIVERY_PORT: "3004"
     ports:
-      - "0.0.0.0:3004:3004"
+      - "${HOST_BIND_IP:-0.0.0.0}:3004:3004"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3004/health || exit 1"]
       interval: 15s
@@ -108,20 +109,20 @@ services:
       - atlasbasket-vm-net
 
   payment-api:
-    image: atlasbasket-payment-api:latest
+    image: atlasbasket-payment-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.payment
     container_name: atlasbasket-vm-payment-api
     restart: unless-stopped
     env_file:
-      - /home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env
+      - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
     environment:
       HOST: 0.0.0.0
       PORT: "3005"
       PAYMENT_PORT: "3005"
     ports:
-      - "0.0.0.0:3005:3005"
+      - "${HOST_BIND_IP:-0.0.0.0}:3005:3005"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/health || exit 1"]
       interval: 15s

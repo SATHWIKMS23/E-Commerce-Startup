@@ -32,9 +32,8 @@ package-lock.json
 package.json
 
 # ==============================================================================
-# Documentation & Scratch Files
+# Scratch Files (Project documentation under Documentation/ is tracked)
 # ==============================================================================
-Documentation
 todos.txt
 SECURITY-AUDIT-REPORT.md
 info.txt
