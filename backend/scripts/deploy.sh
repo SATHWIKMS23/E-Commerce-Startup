@@ -130,14 +130,14 @@ execute_targeted_rollback() {
           log_ok "  -> Original container ${c_name} restarted."
         elif docker image inspect "${img_name}:rollback-backup" >/dev/null 2>&1; then
           log_info "  -> Restoring from backup image tag: ${img_name}:rollback-backup..."
-          IMAGE_TAG="rollback-backup" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1 || true
+          HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="rollback-backup" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --no-deps "${s_name}" >/dev/null 2>&1 || true
           log_ok "  -> Re-created ${s_name} from rollback-backup."
         else
           log_err "  -> FATAL: Unable to find original container or backup image for ${s_name}!"
         fi
 
         # Step 3: Verify restored service responds
-        if http_get_check "http://127.0.0.1:${port}/health"; then
+        if http_get_check "http://${HOST_BIND_IP}:${port}/health" || http_get_check "http://127.0.0.1:${port}/health"; then
           log_ok "  -> ${s_name} restored and HEALTHY on port ${port}."
         else
           log_err "  -> Restored ${s_name} did not respond on port ${port}."
@@ -353,8 +353,17 @@ for entry in "${SERVICES[@]}"; do
   if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}\$"; then
     PREV_IMAGE_ID=$(docker inspect --format='{{.Image}}' "${c_name}" 2>/dev/null || echo "")
     if [ -n "${PREV_IMAGE_ID}" ]; then
-      docker tag "${PREV_IMAGE_ID}" "${img_name}:rollback-backup" 2>/dev/null || true
-      log_ok "Tagged current image as ${img_name}:rollback-backup (${PREV_IMAGE_ID:0:12})"
+      if docker tag "${PREV_IMAGE_ID}" "${img_name}:rollback-backup" 2>/dev/null; then
+        if docker image inspect "${img_name}:rollback-backup" >/dev/null 2>&1; then
+          log_ok "Tagged and verified current image as ${img_name}:rollback-backup (${PREV_IMAGE_ID:0:12})"
+        else
+          log_err "Failed to verify backup image tag ${img_name}:rollback-backup!"
+          execute_targeted_rollback
+        fi
+      else
+        log_err "Failed to tag image ${PREV_IMAGE_ID} as ${img_name}:rollback-backup!"
+        execute_targeted_rollback
+      fi
     fi
 
     # Record into manifest data
@@ -382,8 +391,13 @@ for entry in "${SERVICES[@]}"; do
       log_err "Failed to rename ${c_name} to ${c_name}-prev! Triggering rollback."
       execute_targeted_rollback
     fi
+    # Explicitly verify the backup container exists before proceeding
+    if ! docker ps -a --format '{{.Names}}' | grep -q "^${c_name}-prev\$"; then
+      log_err "CRITICAL: Backup container ${c_name}-prev could not be verified after rename! Triggering rollback."
+      execute_targeted_rollback
+    fi
     SERVICE_STATE["${s_name}"]="ORIGINAL_PRESERVED"
-    log_ok "Original container safely preserved as ${c_name}-prev. Name ${c_name} is free."
+    log_ok "Original container safely preserved and verified as ${c_name}-prev. Name ${c_name} is free."
   else
     log_info "No previous container ${c_name} found (initial deployment for this service)."
     TRACKED_UPDATES+=("${s_name}")
@@ -395,7 +409,7 @@ for entry in "${SERVICES[@]}"; do
   log_info "Launching replacement ${c_name} with image tag ${COMMIT_SHA:0:12} via Compose..."
   SERVICE_STATE["${s_name}"]="REPLACEMENT_CREATING"
 
-  if ! HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="${COMMIT_SHA}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
+  if ! HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="${COMMIT_SHA}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --no-deps "${s_name}" >/dev/null 2>&1; then
     log_err "Docker Compose up failed for ${s_name}! Triggering rollback."
     execute_targeted_rollback
   fi

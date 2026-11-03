@@ -37,20 +37,21 @@ The deployment is executed by `backend/scripts/deploy.sh` through a self-hosted 
    - Validates Docker daemon responsiveness.
    - Checks that free disk space is at least 2,048 MB.
    - Validates existence of `secrets/backend.env` (never prints secrets).
-   - Validates that `atlasbasket-postgres` and `atlasbasket-vm-redis` are actively running (missing dependencies immediately block deployment with exit code 1; neither container is touched).
+   - Validates that `HOST_BIND_IP` (`192.168.122.90`) is assigned to an active interface on this VM.
+   - Validates that `atlasbasket-postgres` and `atlasbasket-vm-redis` are actively running (missing dependencies immediately block deployment with exit code 1; neither container is touched or managed by Compose).
 3. **Sequential Builds**:
    - Builds `Dockerfile.customer`, `Dockerfile.seller`, `Dockerfile.admin`, `Dockerfile.delivery`, and `Dockerfile.payment` one by one using Docker BuildKit.
    - Tags images with the full immutable Git commit SHA (`atlasbasket-<service>:${COMMIT_SHA}`) and `:latest`.
    - Sequential execution keeps memory consumption at $\sim$1 GB, protecting the 7.4 GB RAM VM against OOM killer kills.
 4. **Deliberate Migration & Rolling Replacement**:
    - For each service:
-     - Tags running container image as `${img_name}:rollback-backup`.
+     - Tags running container image as `${img_name}:rollback-backup` and verifies the backup image tag exists.
      - Records the service into `TRACKED_UPDATES`.
      - Starts downtime stopwatch (`STOP_START_TIME`).
-     - Stops the container and renames it to `atlasbasket-vm-<service>-prev` (clears container name conflict).
-     - Deploys replacement container using canonical Docker Compose:
-       `IMAGE_TAG=${COMMIT_SHA} docker compose -f backend/compose.vm.yml up -d <service>`
-     - Polls `http://127.0.0.1:<port>/health` (up to 40s timeout).
+     - Stops the container and renames it to `atlasbasket-vm-<service>-prev` (clears container name conflict), verifying the backup container exists before proceeding.
+     - Deploys replacement container using canonical Docker Compose with `--no-deps`:
+       `HOST_BIND_IP=192.168.122.90 IMAGE_TAG=${COMMIT_SHA} docker compose -f backend/compose.vm.yml up -d --no-deps <service>`
+     - Polls `http://${HOST_BIND_IP}:<port>/health` (up to 40s timeout).
      - Calculates and logs actual measured downtime:
        `STOP_END_TIME - STOP_START_TIME`.
 5. **Finalization**:

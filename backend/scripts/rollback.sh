@@ -124,7 +124,7 @@ for entry in "${SERVICES[@]}"; do
     docker stop "${c_name}" >/dev/null 2>&1 || true
     docker rm -f "${c_name}" >/dev/null 2>&1 || true
 
-    if HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="${TARGET_TAG}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d "${s_name}" >/dev/null 2>&1; then
+    if HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="${TARGET_TAG}" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --no-deps "${s_name}" >/dev/null 2>&1; then
       log_ok "  -> Re-launched ${c_name} via Compose with image tag '${TARGET_TAG}'."
       restored_count=$((restored_count + 1))
     else
