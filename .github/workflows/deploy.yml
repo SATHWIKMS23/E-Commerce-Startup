@@ -23,8 +23,8 @@ jobs:
     name: Build & Deploy Backend
     # Protect production environment with GitHub Environment approval gates
     environment: atlasbasket-backend-production
-    # Security restriction: Only run for the official repository and main branch / authorized dispatch
-    if: github.repository == 'STARTUP-GIT/E-Commerce-Startup' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    # Security restriction: Only run for the official repository and main branch
+    if: github.repository == 'STARTUP-GIT/E-Commerce-Startup' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, atlasbasket-prod]
     timeout-minutes: 30
 
