@@ -5,15 +5,17 @@
 #
 # Canonical Deployment Architecture:
 #   - Single canonical deployment mechanism: Docker Compose (backend/compose.vm.yml).
+#   - Real container preservation: original production containers are stopped and
+#     renamed to unique backup names (e.g. atlasbasket-vm-<service>-prev-<SHA>).
+#   - Zero reliance on Docker image tags or store state for live container rollback.
 #   - Immutable image tagging using full Git commit SHA (${COMMIT_SHA}).
 #   - Sequential Dockerfile builds (1 at a time) conserving 7.4 GB RAM.
 #   - Exclusive flock locking (/tmp/atlasbasket-deploy.lock) preventing race conditions.
-#   - Pre-flight checks strictly block deployment if Postgres or Redis is down.
-#   - Safe transition: existing containers renamed to -prev to eliminate conflicts.
+#   - Pre-flight checks strictly block deployment if Postgres, Redis, or Bind IP is down.
 #   - Actual measured downtime reported per service (no speculative estimates).
-#   - Rollback operates EXCLUSIVELY on services modified in this deployment run.
+#   - Full-fleet rollback operates on all services modified during this run.
 #   - Non-recursive error trapping: trap disabled inside rollback handler.
-#   - Durable release manifest persisted to disk for manual post-deploy rollback.
+#   - Durable release manifest persisted to disk retaining at least 3 historical releases.
 # ==============================================================================
 
 set -uo pipefail
@@ -27,13 +29,28 @@ REPO_ROOT="$(cd "${BACKEND_DIR}/.." && pwd)"
 COMPOSE_FILE="${BACKEND_DIR}/compose.vm.yml"
 SECRETS_FILE="/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env"
 VM_REPO_PATH="/home/sathwik-atlasbasket/apps/atlasbasket"
-DEPLOY_MANIFEST="${VM_REPO_PATH}/.deployment_manifest.json"
+
+if [ -d "${VM_REPO_PATH}" ]; then
+  DEPLOY_MANIFEST="${VM_REPO_PATH}/.deployment_manifest.json"
+else
+  DEPLOY_MANIFEST="${REPO_ROOT}/.deployment_manifest.json"
+fi
+
 LOCK_FILE="/tmp/atlasbasket-deploy.lock"
 DOCKER_NETWORK="atlasbasket-vm-net"
 VM_IP="192.168.122.90"
 HOST_BIND_IP="${HOST_BIND_IP:-192.168.122.90}"
 export HOST_BIND_IP
 COMMIT_SHA="${GITHUB_SHA:-$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo 'manual')}"
+
+# Python runtime detection for release manifest management
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+else
+  PYTHON_BIN=""
+fi
 
 # Service definitions:
 # service_name | container_name | image_name | dockerfile | port | env_port_var
@@ -45,12 +62,20 @@ SERVICES=(
   "payment-api|atlasbasket-vm-payment-api|atlasbasket-payment-api|Dockerfile.payment|3005|PAYMENT_PORT"
 )
 
-# Service lifecycle states:
-# UNTOUCHED | STOPPING | ORIGINAL_STOPPED | ORIGINAL_PRESERVED | REPLACEMENT_CREATING | REPLACEMENT_CREATED | REPLACEMENT_HEALTHY
+# Service lifecycle states and preserved container tracking:
 declare -A SERVICE_STATE
+declare -A SERVICE_BACKUP_CONTAINER
+declare -A SERVICE_BACKUP_CID
+declare -A SERVICE_BACKUP_IMAGE
+declare -A SERVICE_BACKUP_IMGNAME
+
 for entry in "${SERVICES[@]}"; do
   IFS="|" read -r s_name _ <<< "${entry}"
   SERVICE_STATE["${s_name}"]="UNTOUCHED"
+  SERVICE_BACKUP_CONTAINER["${s_name}"]=""
+  SERVICE_BACKUP_CID["${s_name}"]=""
+  SERVICE_BACKUP_IMAGE["${s_name}"]=""
+  SERVICE_BACKUP_IMGNAME["${s_name}"]=""
 done
 
 TRACKED_UPDATES=()
@@ -76,11 +101,11 @@ http_get_check() {
 }
 
 # ------------------------------------------------------------------------------
-# 3. Targeted Rollback Function (Operates EXCLUSIVELY on Modified Services)
+# 3. Targeted Full-Fleet Rollback Function
 # ------------------------------------------------------------------------------
 execute_targeted_rollback() {
   # Disable traps immediately to prevent recursive error handling
-  trap '' ERR EXIT
+  trap '' ERR EXIT INT TERM
   if [ "${IN_ROLLBACK}" -eq 1 ]; then
     return 1
   fi
@@ -103,13 +128,14 @@ execute_targeted_rollback() {
   for (( idx=${#TRACKED_UPDATES[@]}-1; idx>=0; idx-- )); do
     local modified_service="${TRACKED_UPDATES[$idx]}"
     local current_state="${SERVICE_STATE[${modified_service}]:-UNTOUCHED}"
+    local b_name="${SERVICE_BACKUP_CONTAINER[${modified_service}]:-}"
 
     for entry in "${SERVICES[@]}"; do
       IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
       if [ "${s_name}" == "${modified_service}" ]; then
         log_warn "Reversing changes for ${s_name} (State: ${current_state})..."
 
-        # Step 1: Remove broken replacement container if created
+        # Step 1: Remove failed replacement container if created
         if [ "${current_state}" == "REPLACEMENT_CREATED" ] || \
            [ "${current_state}" == "REPLACEMENT_CREATING" ] || \
            [ "${current_state}" == "REPLACEMENT_HEALTHY" ]; then
@@ -118,22 +144,18 @@ execute_targeted_rollback() {
           docker rm -f "${c_name}" >/dev/null 2>&1 || true
         fi
 
-        # Step 2: Restore the original container
-        if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}-prev\$"; then
-          log_info "  -> Restoring original container: ${c_name}-prev -> ${c_name}..."
-          docker rename "${c_name}-prev" "${c_name}" >/dev/null 2>&1 || true
+        # Step 2: Restore the original container from preserved backup
+        if [ -n "${b_name}" ] && docker ps -a --format '{{.Names}}' | grep -q "^${b_name}\$"; then
+          log_info "  -> Restoring original container: ${b_name} -> ${c_name}..."
+          docker rename "${b_name}" "${c_name}" >/dev/null 2>&1 || true
           docker start "${c_name}" >/dev/null 2>&1 || true
-          log_ok "  -> Original container ${c_name} restored and started."
+          log_ok "  -> Original container ${c_name} restored and started from ${b_name}."
         elif [ "${current_state}" == "ORIGINAL_STOPPED" ]; then
           log_info "  -> Restarting stopped original container ${c_name}..."
           docker start "${c_name}" >/dev/null 2>&1 || true
           log_ok "  -> Original container ${c_name} restarted."
-        elif docker image inspect "${img_name}:rollback-backup" >/dev/null 2>&1; then
-          log_info "  -> Restoring from backup image tag: ${img_name}:rollback-backup..."
-          HOST_BIND_IP="${HOST_BIND_IP}" IMAGE_TAG="rollback-backup" ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --no-deps "${s_name}" >/dev/null 2>&1 || true
-          log_ok "  -> Re-created ${s_name} from rollback-backup."
         else
-          log_err "  -> FATAL: Unable to find original container or backup image for ${s_name}!"
+          log_err "  -> FATAL: Preserved backup container '${b_name}' not found for ${s_name}!"
         fi
 
         # Step 3: Verify restored service responds
@@ -148,8 +170,28 @@ execute_targeted_rollback() {
   done
 
   # Record rollback state in durable manifest
-  if [ -d "${VM_REPO_PATH}" ]; then
-    echo "{\"status\":\"ROLLED_BACK\",\"timestamp\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"failed_at_commit\":\"${COMMIT_SHA}\",\"rolled_back_services\":[\"${TRACKED_UPDATES[*]}\"]}" > "${DEPLOY_MANIFEST}" 2>/dev/null || true
+  if [ -n "${PYTHON_BIN}" ]; then
+    ${PYTHON_BIN} -c "
+import json, os, datetime
+path = '${DEPLOY_MANIFEST}'
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+except Exception:
+    data = {'active_release': None, 'history': []}
+data['last_failure'] = {
+    'status': 'ROLLED_BACK',
+    'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    'failed_commit': '${COMMIT_SHA}',
+    'rolled_back_services': '${TRACKED_UPDATES[*]}'.split()
+}
+try:
+    with open(path + '.tmp', 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+    os.replace(path + '.tmp', path)
+except Exception:
+    pass
+" 2>/dev/null || true
   fi
 
   echo "===================================================================="
@@ -184,6 +226,7 @@ log_ok "Exclusive deployment lock acquired on ${LOCK_FILE}."
 echo "===================================================================="
 echo " Starting AtlasBasket Production Backend Deployment"
 echo " Host:       atlasbasket-virtual-machine (${VM_IP})"
+echo " Bind IP:    ${HOST_BIND_IP}"
 echo " Commit:     ${COMMIT_SHA}"
 echo " Timestamp:  $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "===================================================================="
@@ -340,7 +383,6 @@ log_info "Starting canonical Compose rolling replacement of the 5 APIs..."
 
 MAX_RETRIES=20
 RETRY_DELAY=2
-MANIFEST_DATA="{\"deployment_status\":\"IN_PROGRESS\",\"commit\":\"${COMMIT_SHA}\",\"timestamp\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"services\":{"
 
 for entry in "${SERVICES[@]}"; do
   IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
@@ -349,34 +391,53 @@ for entry in "${SERVICES[@]}"; do
   log_info "Processing service: ${s_name} (Port: ${port})"
   log_info "===================================================================="
 
-  PREV_IMAGE_ID=""
+  PREV_CID=""
+  PREV_IMAGE_REF=""
+  PREV_IMAGE_NAME=""
+  BACKUP_NAME=""
+
   if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}\$"; then
-    PREV_IMAGE_ID=$(docker inspect --format='{{.Image}}' "${c_name}" 2>/dev/null || echo "")
-    if [ -n "${PREV_IMAGE_ID}" ]; then
-      if docker tag "${PREV_IMAGE_ID}" "${img_name}:rollback-backup" 2>/dev/null; then
-        if docker image inspect "${img_name}:rollback-backup" >/dev/null 2>&1; then
-          log_ok "Tagged and verified current image as ${img_name}:rollback-backup (${PREV_IMAGE_ID:0:12})"
-        else
-          log_err "Failed to verify backup image tag ${img_name}:rollback-backup!"
-          execute_targeted_rollback
-        fi
-      else
-        log_err "Failed to tag image ${PREV_IMAGE_ID} as ${img_name}:rollback-backup!"
-        execute_targeted_rollback
+    # Step 1: Inspect currently running container configuration and container ID
+    PREV_CID=$(docker inspect --format='{{.Id}}' "${c_name}" 2>/dev/null || echo "")
+    PREV_IMAGE_REF=$(docker inspect --format='{{.Image}}' "${c_name}" 2>/dev/null || echo "")
+    PREV_IMAGE_NAME=$(docker inspect --format='{{.Config.Image}}' "${c_name}" 2>/dev/null || echo "")
+
+    log_info "  -> Found live container ${c_name} (CID: ${PREV_CID:0:12})"
+    log_info "  -> Image reference: ${PREV_IMAGE_NAME:-${PREV_IMAGE_REF:0:12}}"
+
+    # Step 2: Determine unique previous-container name based on release SHA or deployment identifier
+    PREV_RELEASE_SHA=""
+    if [ -f "${DEPLOY_MANIFEST}" ] && [ -n "${PYTHON_BIN}" ]; then
+      PREV_RELEASE_SHA=$(${PYTHON_BIN} -c "import json; m=json.load(open('${DEPLOY_MANIFEST}')); print(m.get('active_release',{}).get('commit','')[:7])" 2>/dev/null || echo "")
+    fi
+    if [ -z "${PREV_RELEASE_SHA}" ] && [ -n "${PREV_IMAGE_NAME}" ]; then
+      IMG_TAG=$(echo "${PREV_IMAGE_NAME}" | awk -F':' '{print $2}')
+      if [[ "${IMG_TAG}" =~ ^[0-9a-f]{7,40}$ ]]; then
+        PREV_RELEASE_SHA="${IMG_TAG:0:7}"
       fi
     fi
+    if [ -z "${PREV_RELEASE_SHA}" ] && [ -n "${PREV_CID}" ]; then
+      PREV_RELEASE_SHA="${PREV_CID:0:7}"
+    fi
+    BACKUP_TAG="${PREV_RELEASE_SHA:-${COMMIT_SHA:0:7}}"
+    BACKUP_NAME="${c_name}-prev-${BACKUP_TAG}"
 
-    # Record into manifest data
-    MANIFEST_DATA="${MANIFEST_DATA}\"${s_name}\":{\"prev_image\":\"${PREV_IMAGE_ID}\",\"port\":\"${port}\"},"
+    # Step 3: Verify unique backup name is available (avoid collisions with prior runs)
+    if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}\$"; then
+      BACKUP_NAME="${BACKUP_NAME}-$(date +%s)"
+    fi
+    log_info "  -> Unique backup container name verified: ${BACKUP_NAME}"
 
-    # Track that this service is entering modification
+    SERVICE_BACKUP_CONTAINER["${s_name}"]="${BACKUP_NAME}"
+    SERVICE_BACKUP_CID["${s_name}"]="${PREV_CID}"
+    SERVICE_BACKUP_IMAGE["${s_name}"]="${PREV_IMAGE_REF}"
+    SERVICE_BACKUP_IMGNAME["${s_name}"]="${PREV_IMAGE_NAME}"
+
     TRACKED_UPDATES+=("${s_name}")
     SERVICE_STATE["${s_name}"]="STOPPING"
-
-    # Start timing measured service downtime
     STOP_START_TIME=$(date +%s)
 
-    # Step A: Stop original container
+    # Step 4: Stop the original container
     log_info "Stopping original container ${c_name}..."
     if ! docker stop "${c_name}" >/dev/null 2>&1; then
       log_err "Failed to stop ${c_name}! Triggering rollback."
@@ -384,28 +445,33 @@ for entry in "${SERVICES[@]}"; do
     fi
     SERVICE_STATE["${s_name}"]="ORIGINAL_STOPPED"
 
-    # Step B: Safely preserve original container by renaming to -prev
-    log_info "Renaming ${c_name} -> ${c_name}-prev (clears name conflict for Compose)..."
-    docker rm -f "${c_name}-prev" >/dev/null 2>&1 || true
-    if ! docker rename "${c_name}" "${c_name}-prev" >/dev/null 2>&1; then
-      log_err "Failed to rename ${c_name} to ${c_name}-prev! Triggering rollback."
+    # Step 5: Rename original container to the unique backup name
+    log_info "Preserving original container: ${c_name} -> ${BACKUP_NAME}..."
+    if ! docker rename "${c_name}" "${BACKUP_NAME}" >/dev/null 2>&1; then
+      log_err "Failed to rename ${c_name} to ${BACKUP_NAME}! Triggering rollback."
       execute_targeted_rollback
     fi
-    # Explicitly verify the backup container exists before proceeding
-    if ! docker ps -a --format '{{.Names}}' | grep -q "^${c_name}-prev\$"; then
-      log_err "CRITICAL: Backup container ${c_name}-prev could not be verified after rename! Triggering rollback."
+
+    # Step 6: Verify the renamed container exists and is stopped
+    IS_RUNNING=$(docker inspect --format='{{.State.Running}}' "${BACKUP_NAME}" 2>/dev/null || echo "unknown")
+    if ! docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}\$" || [ "${IS_RUNNING}" != "false" ]; then
+      log_err "CRITICAL: Backup container ${BACKUP_NAME} verification failed (running=${IS_RUNNING})! Triggering rollback."
       execute_targeted_rollback
     fi
     SERVICE_STATE["${s_name}"]="ORIGINAL_PRESERVED"
-    log_ok "Original container safely preserved and verified as ${c_name}-prev. Name ${c_name} is free."
+    log_ok "Original container safely preserved and verified as ${BACKUP_NAME} (stopped). Name ${c_name} is free."
   else
     log_info "No previous container ${c_name} found (initial deployment for this service)."
+    SERVICE_BACKUP_CONTAINER["${s_name}"]=""
+    SERVICE_BACKUP_CID["${s_name}"]=""
+    SERVICE_BACKUP_IMAGE["${s_name}"]=""
+    SERVICE_BACKUP_IMGNAME["${s_name}"]=""
     TRACKED_UPDATES+=("${s_name}")
     STOP_START_TIME=$(date +%s)
     SERVICE_STATE["${s_name}"]="ORIGINAL_PRESERVED"
   fi
 
-  # Step C: Deploy replacement container using canonical Docker Compose
+  # Step 7: Create replacement container using canonical Docker Compose with --no-deps
   log_info "Launching replacement ${c_name} with image tag ${COMMIT_SHA:0:12} via Compose..."
   SERVICE_STATE["${s_name}"]="REPLACEMENT_CREATING"
 
@@ -416,7 +482,7 @@ for entry in "${SERVICES[@]}"; do
   SERVICE_STATE["${s_name}"]="REPLACEMENT_CREATED"
   log_ok "Replacement container ${c_name} launched via Compose."
 
-  # Step D: Health Verification for this service
+  # Step 8: Health Verification for this service
   log_info "Verifying health of ${s_name} on port ${port} (timeout: $((MAX_RETRIES * RETRY_DELAY))s)..."
   service_healthy=0
 
@@ -462,21 +528,125 @@ echo "===================================================================="
 log_ok "ALL 5 BACKEND SERVICES DEPLOYED AND VERIFIED HEALTHY!"
 echo "===================================================================="
 
-# Safely clean up temporary -prev containers now that all 5 replacements are healthy
-log_info "Cleaning up temporary -prev backup containers..."
+# Retain previous stopped containers for persistent release history
+log_info "Retaining preserved backup containers for release history..."
 for entry in "${SERVICES[@]}"; do
   IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
-  docker rm -f "${c_name}-prev" >/dev/null 2>&1 || true
+  local_backup="${SERVICE_BACKUP_CONTAINER[${s_name}]:-}"
+  if [ -n "${local_backup}" ] && docker ps -a --format '{{.Names}}' | grep -q "^${local_backup}\$"; then
+    log_ok "  -> Preserved release backup: ${local_backup}"
+  fi
 done
-log_ok "Temporary backup containers cleaned up."
 
-# Finalize and store durable deployment manifest for post-deployment manual rollback
-MANIFEST_DATA="${MANIFEST_DATA%,}}}"
-if [ -d "${VM_REPO_PATH}" ]; then
-  echo "${MANIFEST_DATA}" > "${DEPLOY_MANIFEST}" 2>/dev/null || true
-  log_ok "Durable deployment manifest stored at: ${DEPLOY_MANIFEST}"
+# Persist release history into durable manifest & apply 3-release retention policy
+DEPLOY_TS=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+DEPLOY_ID="$(date -u '+%Y%m%d%H%M%S')-${COMMIT_SHA:0:7}"
+
+if [ -n "${PYTHON_BIN}" ]; then
+  ACTIVE_SERVICES_JSON="{"
+  PRESERVED_SERVICES_JSON="{"
+  has_preserved=0
+
+  for entry in "${SERVICES[@]}"; do
+    IFS="|" read -r s_name c_name img_name d_file port env_var <<< "${entry}"
+    new_cid=$(docker inspect --format='{{.Id}}' "${c_name}" 2>/dev/null || echo "")
+    new_img=$(docker inspect --format='{{.Config.Image}}' "${c_name}" 2>/dev/null || echo "")
+    ACTIVE_SERVICES_JSON="${ACTIVE_SERVICES_JSON}\"${s_name}\":{\"container_name\":\"${c_name}\",\"container_id\":\"${new_cid}\",\"image\":\"${new_img}\",\"port\":${port}},"
+
+    b_name="${SERVICE_BACKUP_CONTAINER[${s_name}]:-}"
+    b_cid="${SERVICE_BACKUP_CID[${s_name}]:-}"
+    b_img="${SERVICE_BACKUP_IMAGE[${s_name}]:-}"
+    b_imgname="${SERVICE_BACKUP_IMGNAME[${s_name}]:-}"
+
+    if [ -n "${b_name}" ]; then
+      has_preserved=1
+      PRESERVED_SERVICES_JSON="${PRESERVED_SERVICES_JSON}\"${s_name}\":{\"backup_container_name\":\"${b_name}\",\"container_id\":\"${b_cid}\",\"image\":\"${b_imgname:-${b_img}}\",\"port\":${port}},"
+    fi
+  done
+  ACTIVE_SERVICES_JSON="${ACTIVE_SERVICES_JSON%,}}"
+  PRESERVED_SERVICES_JSON="${PRESERVED_SERVICES_JSON%,}}"
+
+  PRUNE_OUTPUT=$(${PYTHON_BIN} - <<EOF
+import json, os, sys
+
+manifest_path = "${DEPLOY_MANIFEST}"
+try:
+    with open(manifest_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+except Exception:
+    data = {'active_release': None, 'history': []}
+
+active_commit = "${COMMIT_SHA}"
+deploy_ts = "${DEPLOY_TS}"
+deploy_id = "${DEPLOY_ID}"
+
+# Set active release
+data['active_release'] = {
+    'release_id': deploy_id,
+    'commit': active_commit,
+    'status': 'ACTIVE',
+    'deployed_at': deploy_ts,
+    'services': json.loads('${ACTIVE_SERVICES_JSON}')
+}
+
+# If containers were preserved in this run, record them into history
+has_preserved = ${has_preserved}
+if has_preserved:
+    preserved_entry = {
+        'release_id': deploy_id + '-prev',
+        'commit': '${PREV_RELEASE_SHA:-unknown}',
+        'preserved_at': deploy_ts,
+        'preserved_containers': json.loads('${PRESERVED_SERVICES_JSON}')
+    }
+    data.setdefault('history', []).insert(0, preserved_entry)
+
+# Prune historical releases beyond the last 3, ensuring recovery versions are kept
+history = data.get('history', [])
+min_retain = 3
+to_delete = []
+
+if len(history) > min_retain:
+    keep_history = history[:min_retain]
+    old_history = history[min_retain:]
+
+    protected_services = set()
+    for rel in keep_history:
+        for s_name in rel.get('preserved_containers', {}).keys():
+            protected_services.add(s_name)
+
+    for rel in old_history:
+        for s_name, c_info in rel.get('preserved_containers', {}).items():
+            b_name = c_info.get('backup_container_name')
+            if s_name in protected_services and b_name:
+                to_delete.append(b_name)
+
+    data['history'] = keep_history
+
+tmp_path = manifest_path + '.tmp'
+with open(tmp_path, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+os.replace(tmp_path, manifest_path)
+
+for name in to_delete:
+    print(name)
+EOF
+) 2>/dev/null || true
+
+  # Safely prune retired backup containers beyond the 3 most recent
+  if [ -n "${PRUNE_OUTPUT}" ]; then
+    for old_b in ${PRUNE_OUTPUT}; do
+      if [ -n "${old_b}" ]; then
+        is_running=$(docker inspect --format='{{.State.Running}}' "${old_b}" 2>/dev/null || echo "unknown")
+        if [ "${is_running}" == "false" ]; then
+          log_info "Pruning retired backup container beyond 3 releases: ${old_b}..."
+          docker rm -f "${old_b}" >/dev/null 2>&1 || true
+        fi
+      fi
+    done
+  fi
+
+  log_ok "Durable deployment manifest updated and verified at: ${DEPLOY_MANIFEST}"
 fi
-log_ok "Rollback backup image tags (${img_name}:rollback-backup) preserved."
 
 echo ""
 echo "Current Production Backend Containers:"

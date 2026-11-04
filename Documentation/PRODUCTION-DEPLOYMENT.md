@@ -45,19 +45,23 @@ The deployment is executed by `backend/scripts/deploy.sh` through a self-hosted 
    - Sequential execution keeps memory consumption at $\sim$1 GB, protecting the 7.4 GB RAM VM against OOM killer kills.
 4. **Deliberate Migration & Rolling Replacement**:
    - For each service:
-     - Tags running container image as `${img_name}:rollback-backup` and verifies the backup image tag exists.
+     - Inspects existing live container ID and configuration (zero dependency on Docker image store tags).
+     - Assigns a unique previous-container name based on the release SHA or deployment identifier (e.g. `atlasbasket-vm-<service>-prev-<SHA>`).
+     - Verifies the unique backup container name is available.
      - Records the service into `TRACKED_UPDATES`.
      - Starts downtime stopwatch (`STOP_START_TIME`).
-     - Stops the container and renames it to `atlasbasket-vm-<service>-prev` (clears container name conflict), verifying the backup container exists before proceeding.
+     - Stops the container and renames it to `atlasbasket-vm-<service>-prev-<SHA>`.
+     - Verifies the backup container exists and is stopped before proceeding.
      - Deploys replacement container using canonical Docker Compose with `--no-deps`:
        `HOST_BIND_IP=192.168.122.90 IMAGE_TAG=${COMMIT_SHA} docker compose -f backend/compose.vm.yml up -d --no-deps <service>`
      - Polls `http://${HOST_BIND_IP}:<port>/health` (up to 40s timeout).
      - Calculates and logs actual measured downtime:
        `STOP_END_TIME - STOP_START_TIME`.
-5. **Finalization**:
+5. **Finalization & Persistent History**:
    - Only after **all 5 services** are confirmed healthy:
-     - Removes temporary `-prev` backup containers.
-     - Persists deployment record to `~apps/atlasbasket/.deployment_manifest.json`.
+     - Preserves the stopped previous containers on disk for release history.
+     - Persists deployment record to `~apps/atlasbasket/.deployment_manifest.json` with active release and historical release mappings.
+     - Applies the 3-release retention policy (pruning stopped backup containers older than 3 releases, while never deleting running containers or the sole backup version).
      - Releases flock and exits 0.
 
 ---
@@ -67,24 +71,28 @@ The deployment is executed by `backend/scripts/deploy.sh` through a self-hosted 
 ### Automated In-Flight Rollback
 If any image build, container stop/rename, compose up, or health check fails:
 - Error trap invokes `execute_targeted_rollback`.
-- The trap is immediately disabled (`trap '' ERR EXIT`) and guarded by `IN_ROLLBACK` to avoid recursive error loops.
+- The trap is immediately disabled (`trap '' ERR EXIT INT TERM`) and guarded by `IN_ROLLBACK` to avoid recursive error loops.
 - Rollback operates **strictly on services in `TRACKED_UPDATES`** in reverse order:
   - Stops and removes the failed replacement container.
-  - Renames `atlasbasket-vm-<service>-prev` back to `atlasbasket-vm-<service>` and restarts it.
+  - Renames `atlasbasket-vm-<service>-prev-<SHA>` back to `atlasbasket-vm-<service>` and restarts it.
+  - Verifies service health on its configured port.
 - **Untouched services are never modified**, preventing accidental rollout of stale images.
 - Deployment exits with code 1, marking the GitHub Actions run as RED.
 
 ### Manual Rollback (Post-Deployment)
-When an issue is discovered after a successful deployment (when `-prev` containers have been cleaned up):
+When an issue is discovered after a successful deployment:
 ```bash
 ssh sathwik-atlasbasket@192.168.122.90
 cd /home/sathwik-atlasbasket/apps/atlasbasket
 
-# Roll back to immediate previous working release (:rollback-backup):
+# View available historical releases and preserved containers:
+bash backend/scripts/rollback.sh --list
+
+# Roll back to immediate previous working release:
 bash backend/scripts/rollback.sh
 
-# Or roll back to a specific immutable Git commit SHA:
-bash backend/scripts/rollback.sh <COMMIT_SHA>
+# Or roll back to a specific historical release or Git commit SHA:
+bash backend/scripts/rollback.sh <RELEASE_ID_OR_COMMIT_SHA>
 ```
 
 ---

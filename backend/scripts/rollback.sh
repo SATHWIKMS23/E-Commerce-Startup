@@ -4,12 +4,13 @@
 # Target Host: Ubuntu VM (atlasbasket-virtual-machine / 192.168.122.90)
 #
 # Usage:
-#   ./rollback.sh                     # Restores from -prev containers OR :rollback-backup images
-#   ./rollback.sh <COMMIT_SHA_OR_TAG> # Restores images tagged with a specific SHA/tag
+#   ./rollback.sh                     # Restores from the most recent preserved release
+#   ./rollback.sh <RELEASE_ID_OR_SHA> # Restores a specific release from manifest history
+#   ./rollback.sh --list              # Lists available recovery releases & backup containers
 #
 # Supports both:
-#   - Mid-deployment recovery: restores preserved -prev containers directly.
-#   - Post-deployment manual rollback: deploys :rollback-backup images via Compose.
+#   - Real container restoration: renames and restarts preserved -prev containers.
+#   - Compose fallback: re-launches containers from specific Docker image tags.
 # ==============================================================================
 
 set -uo pipefail
@@ -19,15 +20,33 @@ set -uo pipefail
 # ------------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${BACKEND_DIR}/.." && pwd)"
 COMPOSE_FILE="${BACKEND_DIR}/compose.vm.yml"
 SECRETS_FILE="/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env"
 VM_REPO_PATH="/home/sathwik-atlasbasket/apps/atlasbasket"
-DEPLOY_MANIFEST="${VM_REPO_PATH}/.deployment_manifest.json"
+
+if [ -d "${VM_REPO_PATH}" ]; then
+  DEPLOY_MANIFEST="${VM_REPO_PATH}/.deployment_manifest.json"
+else
+  DEPLOY_MANIFEST="${REPO_ROOT}/.deployment_manifest.json"
+fi
+
 LOCK_FILE="/tmp/atlasbasket-deploy.lock"
 DOCKER_NETWORK="atlasbasket-vm-net"
-TARGET_TAG="${1:-rollback-backup}"
+VM_IP="192.168.122.90"
 HOST_BIND_IP="${HOST_BIND_IP:-192.168.122.90}"
 export HOST_BIND_IP
+
+# Python runtime detection for release manifest management
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+else
+  PYTHON_BIN=""
+fi
+
+TARGET_SELECTOR="${1:-}"
 
 SERVICES=(
   "customer-api|atlasbasket-vm-customer-api|atlasbasket-customer-api|3001|CUSTOMER_PORT"
@@ -53,14 +72,53 @@ http_get_check() {
   fi
 }
 
+# ------------------------------------------------------------------------------
+# 2. Handle --list / -l Request
+# ------------------------------------------------------------------------------
+if [ "${TARGET_SELECTOR}" == "--list" ] || [ "${TARGET_SELECTOR}" == "-l" ]; then
+  echo "===================================================================="
+  echo " AtlasBasket Production Release History & Recovery Versions"
+  echo "===================================================================="
+  if [ -f "${DEPLOY_MANIFEST}" ] && [ -n "${PYTHON_BIN}" ]; then
+    ${PYTHON_BIN} - <<EOF
+import json
+try:
+    with open("${DEPLOY_MANIFEST}", 'r', encoding='utf-8') as f:
+        data = json.load(f)
+except Exception:
+    data = {}
+
+active = data.get('active_release')
+if active:
+    print(f"ACTIVE RELEASE: {active.get('release_id')} (Commit: {active.get('commit')}, Deployed: {active.get('deployed_at')})")
+
+history = data.get('history', [])
+if not history:
+    print("\nNo historical releases recorded in manifest.")
+else:
+    print(f"\nPRESERVED RELEASES IN HISTORY ({len(history)} available):")
+    for idx, rel in enumerate(history):
+        print(f"  [{idx + 1}] Release ID: {rel.get('release_id')} | Commit: {rel.get('commit')} | Preserved: {rel.get('preserved_at')}")
+        for s_name, c_info in rel.get('preserved_containers', {}).items():
+            print(f"      - {s_name}: {c_info.get('backup_container_name')} (Port: {c_info.get('port')})")
+EOF
+  fi
+
+  echo ""
+  echo "Preserved containers currently on Docker daemon:"
+  docker ps -a --filter "name=-prev" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+  echo "===================================================================="
+  exit 0
+fi
+
 echo "===================================================================="
 echo " AtlasBasket Production Manual Rollback Utility"
-echo " Target image tag / mode: '${TARGET_TAG}'"
-echo " Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+echo " Target selector: '${TARGET_SELECTOR:-latest previous release}'"
+echo " Timestamp:       $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "===================================================================="
 
 # ------------------------------------------------------------------------------
-# 2. Acquire Exclusive Lock
+# 3. Acquire Exclusive Lock
 # ------------------------------------------------------------------------------
 exec 200>"${LOCK_FILE}"
 if ! flock -n 200; then
@@ -70,7 +128,7 @@ fi
 log_ok "Exclusive lock acquired on ${LOCK_FILE}."
 
 # ------------------------------------------------------------------------------
-# 3. Pre-Flight Checks
+# 4. Pre-Flight Checks
 # ------------------------------------------------------------------------------
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD="docker compose"
@@ -97,7 +155,71 @@ fi
 log_ok "Redis container (atlasbasket-vm-redis) is running."
 
 # ------------------------------------------------------------------------------
-# 4. Rollback Execution
+# 5. Determine Target Release & Preserved Containers
+# ------------------------------------------------------------------------------
+declare -A TARGET_CONTAINER_MAP
+CHOSEN_RELEASE_ID=""
+CHOSEN_COMMIT=""
+
+if [ -f "${DEPLOY_MANIFEST}" ] && [ -n "${PYTHON_BIN}" ]; then
+  RESOLVE_DATA=$(${PYTHON_BIN} - <<EOF
+import json, sys
+
+try:
+    with open("${DEPLOY_MANIFEST}", 'r', encoding='utf-8') as f:
+        data = json.load(f)
+except Exception:
+    sys.exit(0)
+
+history = data.get('history', [])
+if not history:
+    sys.exit(0)
+
+selector = "${TARGET_SELECTOR}"
+chosen = None
+
+if not selector:
+    chosen = history[0]
+else:
+    for rel in history:
+        if rel.get('release_id') == selector or rel.get('commit', '').startswith(selector):
+            chosen = rel
+            break
+    if not chosen:
+        for rel in history:
+            for s_name, c_info in rel.get('preserved_containers', {}).items():
+                if c_info.get('backup_container_name') == selector:
+                    chosen = rel
+                    break
+            if chosen: break
+
+if chosen:
+    print(f"RELEASE_ID={chosen.get('release_id')}")
+    print(f"COMMIT={chosen.get('commit')}")
+    for s_name, c_info in chosen.get('preserved_containers', {}).items():
+        b_name = c_info.get('backup_container_name')
+        if b_name:
+            print(f"CONTAINER|{s_name}|{b_name}")
+EOF
+)
+
+  while IFS= read -r line; do
+    if [[ "${line}" =~ ^RELEASE_ID=(.*)$ ]]; then
+      CHOSEN_RELEASE_ID="${BASH_REMATCH[1]}"
+    elif [[ "${line}" =~ ^COMMIT=(.*)$ ]]; then
+      CHOSEN_COMMIT="${BASH_REMATCH[1]}"
+    elif [[ "${line}" =~ ^CONTAINER\|([^|]+)\|(.*)$ ]]; then
+      TARGET_CONTAINER_MAP["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
+    fi
+  done <<< "${RESOLVE_DATA}"
+fi
+
+if [ -n "${CHOSEN_RELEASE_ID}" ]; then
+  log_ok "Selected target recovery release: ${CHOSEN_RELEASE_ID} (Commit: ${CHOSEN_COMMIT})"
+fi
+
+# ------------------------------------------------------------------------------
+# 6. Rollback Execution
 # ------------------------------------------------------------------------------
 restored_count=0
 
@@ -106,21 +228,29 @@ for entry in "${SERVICES[@]}"; do
   echo ""
   log_info "Processing rollback for ${s_name} (${c_name})..."
 
-  # Mode A: If a -prev backup container exists, restore it directly
-  if docker ps -a --format '{{.Names}}' | grep -q "^${c_name}-prev\$"; then
-    log_info "  -> Found preserved container: ${c_name}-prev"
+  b_name="${TARGET_CONTAINER_MAP[${s_name}]:-}"
+
+  # If manifest did not yield a backup container, scan daemon for latest matching -prev container
+  if [ -z "${b_name}" ] || ! docker ps -a --format '{{.Names}}' | grep -q "^${b_name}\$"; then
+    b_name=$(docker ps -a --format '{{.Names}}' | grep "^${c_name}-prev" | head -1 || echo "")
+  fi
+
+  # Mode A: If preserved backup container exists on daemon, restore it directly
+  if [ -n "${b_name}" ] && docker ps -a --format '{{.Names}}' | grep -q "^${b_name}\$"; then
+    log_info "  -> Found preserved backup container: ${b_name}"
     docker stop "${c_name}" >/dev/null 2>&1 || true
     docker rm -f "${c_name}" >/dev/null 2>&1 || true
-    docker rename "${c_name}-prev" "${c_name}" >/dev/null 2>&1 || true
+    docker rename "${b_name}" "${c_name}" >/dev/null 2>&1 || true
     docker start "${c_name}" >/dev/null 2>&1 || true
-    log_ok "  -> Restored and started ${c_name} from previous container."
+    log_ok "  -> Restored and started ${c_name} from ${b_name}."
     restored_count=$((restored_count + 1))
     continue
   fi
 
-  # Mode B: Post-deployment rollback (using target image tag via Compose)
+  # Mode B: Fallback using Docker Compose if an image tag was requested
+  TARGET_TAG="${TARGET_SELECTOR:-latest}"
   if docker image inspect "${img_name}:${TARGET_TAG}" >/dev/null 2>&1; then
-    log_info "  -> Restoring via canonical Compose using image tag: ${img_name}:${TARGET_TAG}..."
+    log_info "  -> Re-launching via Compose using image tag: ${img_name}:${TARGET_TAG}..."
     docker stop "${c_name}" >/dev/null 2>&1 || true
     docker rm -f "${c_name}" >/dev/null 2>&1 || true
 
@@ -131,12 +261,12 @@ for entry in "${SERVICES[@]}"; do
       log_err "  -> Compose failed to re-launch ${c_name}!"
     fi
   else
-    log_err "  -> Neither -prev container nor image '${img_name}:${TARGET_TAG}' was found!"
+    log_err "  -> Neither preserved backup container nor image '${img_name}:${TARGET_TAG}' was found!"
   fi
 done
 
 if [ "${restored_count}" -eq 0 ]; then
-  log_err "No containers or images were found to restore for '${TARGET_TAG}'."
+  log_err "No containers or images were found to restore for target '${TARGET_SELECTOR:-latest}'."
   exit 1
 fi
 
@@ -155,6 +285,29 @@ for entry in "${SERVICES[@]}"; do
     ALL_OK=0
   fi
 done
+
+# Record successful rollback in durable manifest
+if [ "${ALL_OK}" -eq 1 ] && [ -n "${PYTHON_BIN}" ] && [ -f "${DEPLOY_MANIFEST}" ]; then
+  ${PYTHON_BIN} -c "
+import json, datetime
+path = '${DEPLOY_MANIFEST}'
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    data['active_release'] = {
+        'release_id': '${CHOSEN_RELEASE_ID:-manual-rollback}',
+        'commit': '${CHOSEN_COMMIT:-manual}',
+        'status': 'ACTIVE_ROLLED_BACK',
+        'rolled_back_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+    with open(path + '.tmp', 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+    import os
+    os.replace(path + '.tmp', path)
+except Exception:
+    pass
+" 2>/dev/null || true
+fi
 
 if [ "${ALL_OK}" -eq 1 ]; then
   echo "===================================================================="
