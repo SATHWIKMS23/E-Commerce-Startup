@@ -92,7 +92,7 @@ export function HomePage() {
   const { data: session } = useSession();
   const { shops, isLoading: shopsLoading } = useShopList();
   const { homepageSections, branding } = useSiteLayout();
-  const marketplaceName = branding?.name || branding?.marketplaceName || 'Marketplace';
+  const marketplaceName = branding?.name || branding?.marketplaceName || 'AtlasBasket';
 
 
   const { data: categoriesData } = useQuery<any>({

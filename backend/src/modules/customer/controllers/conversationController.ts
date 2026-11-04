@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { ConversationType, ConversationStatus, MessageSenderType } from "@prisma/client";
 import { prisma } from "../../../config/prisma.js";
-import { broadcastToConversation, broadcastToAdmins, broadcastReadReceipt } from "../../../services/chat/chat.service.js";
+import { broadcastToConversation, broadcastToAdmins, broadcastReadReceipt, subscribeActorToConversation } from "../../../services/chat/chat.service.js";
 
 // ─── GET /customer/api/conversations ─────────────────────────────────────────
 
@@ -134,6 +134,9 @@ export const startCustomerConversation = async (req: Request, res: Response) => 
 
             return { conversation: conv, firstMessage: msg };
         });
+
+        // Auto-subscribe the customer's active WebSocket to the new conversation
+        subscribeActorToConversation("CUSTOMER", customerId, conversation.id);
 
         // Broadcast new conversation and unread notification to all admins
         broadcastToAdmins({

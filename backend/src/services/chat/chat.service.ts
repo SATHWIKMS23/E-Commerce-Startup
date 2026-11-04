@@ -128,6 +128,47 @@ function extractCookie(cookieHeader: string | undefined, name: string): string |
     return match ? decodeURIComponent(match[1]) : null;
 }
 
+// Helper to auto-subscribe authenticated clients to their own existing conversations
+async function autoSubscribeClientConversations(client: AuthenticatedClient): Promise<void> {
+    if (!client.actorId) return;
+    try {
+        if (client.actorType === "CUSTOMER") {
+            const convs = await prisma.conversation.findMany({
+                where: { customerId: client.actorId },
+                select: { id: true }
+            });
+            for (const c of convs) {
+                client.subscribedConversations.add(c.id);
+            }
+        } else if (client.actorType === "SELLER") {
+            const convs = await prisma.conversation.findMany({
+                where: { sellerId: client.actorId },
+                select: { id: true }
+            });
+            for (const c of convs) {
+                client.subscribedConversations.add(c.id);
+            }
+        }
+    } catch (err: any) {
+        logger.warn("[WS] Error auto-subscribing client to conversations:", {
+            actorType: client.actorType,
+            error: err?.message
+        });
+    }
+}
+
+export function subscribeActorToConversation(
+    actorType: "ADMIN" | "SELLER" | "CUSTOMER",
+    actorId: string,
+    conversationId: string
+): void {
+    for (const [, client] of clients.entries()) {
+        if (client.actorType === actorType && client.actorId === actorId) {
+            client.subscribedConversations.add(conversationId);
+        }
+    }
+}
+
 let wssInstance: WebSocketServer | null = null;
 let isSubscribed = false;
 let isSubscribing = false;
@@ -511,6 +552,7 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
         });
 
         if (authData) {
+            autoSubscribeClientConversations(client).catch(() => {});
             ws.send(JSON.stringify({
                 type: "auth_success",
                 actorType: client.actorType,
@@ -530,6 +572,11 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
                 const payload = JSON.parse(messageStr);
 
                 switch (payload.type) {
+                    case "ping": {
+                        client.isAlive = true;
+                        return ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+                    }
+
                     case "auth": {
                         const verified = await authenticateToken(payload.token, payload.role);
                         if (!verified) {
@@ -538,12 +585,51 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
                         client.actorType = verified.actorType;
                         client.actorId = verified.actorId;
                         client.actorName = verified.actorName;
+                        await autoSubscribeClientConversations(client);
                         return ws.send(JSON.stringify({
                             type: "auth_success",
                             actorType: client.actorType,
                             actorId: client.actorId,
                             actorName: client.actorName
                         }));
+                    }
+
+                    case "join_conversations": {
+                        if (!client.actorId) {
+                            return ws.send(JSON.stringify({ type: "error", message: "Authentication required" }));
+                        }
+                        const rawIds = Array.isArray(payload.conversationIds) ? payload.conversationIds : [];
+                        const validIds: string[] = rawIds.map(String).filter(Boolean);
+                        if (validIds.length === 0) return;
+
+                        if (client.actorType === "CUSTOMER") {
+                            const owned = await prisma.conversation.findMany({
+                                where: { id: { in: validIds }, customerId: client.actorId },
+                                select: { id: true }
+                            });
+                            owned.forEach((c) => client.subscribedConversations.add(c.id));
+                            return ws.send(JSON.stringify({
+                                type: "joined_conversations",
+                                conversationIds: owned.map((c) => c.id)
+                            }));
+                        } else if (client.actorType === "SELLER") {
+                            const owned = await prisma.conversation.findMany({
+                                where: { id: { in: validIds }, sellerId: client.actorId },
+                                select: { id: true }
+                            });
+                            owned.forEach((c) => client.subscribedConversations.add(c.id));
+                            return ws.send(JSON.stringify({
+                                type: "joined_conversations",
+                                conversationIds: owned.map((c) => c.id)
+                            }));
+                        } else if (client.actorType === "ADMIN") {
+                            validIds.forEach((id) => client.subscribedConversations.add(id));
+                            return ws.send(JSON.stringify({
+                                type: "joined_conversations",
+                                conversationIds: validIds
+                            }));
+                        }
+                        break;
                     }
 
                     case "join": {

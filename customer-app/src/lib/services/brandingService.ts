@@ -34,26 +34,26 @@ export interface BrandingData {
 }
 
 export const DEFAULT_BRANDING: BrandingData = {
-  name: 'Marketplace',
-  marketplaceName: 'Marketplace',
+  name: 'AtlasBasket',
+  marketplaceName: 'AtlasBasket',
   logo: '',
   favicon: '',
   tagline: 'Your local marketplace for everything',
-  shortName: 'Marketplace',
+  shortName: 'AtlasBasket',
   logoUrl: '',
   faviconUrl: '',
   heroBadge: 'The Local Marketplace for Everything',
   heroHeadingLine1: 'Buy Anything.',
   heroHeadingLine2: 'From Anyone.',
   heroHeadingLine3: 'Near You.',
-  heroDescription: 'Marketplace is your local marketplace for everything — fashion, tech, food, prints, crafts, and beyond. Discover creators. Support neighbours.',
-  searchPlaceholder: 'Search products, shops on Marketplace…',
+  heroDescription: 'AtlasBasket is your local marketplace for everything — fashion, tech, food, prints, crafts, and beyond. Discover creators. Support neighbours.',
+  searchPlaceholder: 'Search products, shops on AtlasBasket…',
   exploreShopsButtonText: 'Explore Shops',
   browseProductsButtonText: 'Browse Products',
-  footerDescription: 'Discover local craft creators, purchase unique handmade items, and order custom-made 3D prints directly from makers on Marketplace.',
-  seoTitle: 'Marketplace',
-  seoDescription: 'Discover local artisans, handcrafted items, and custom products.',
-  browserTitle: 'Marketplace',
+  footerDescription: 'Discover local craft creators, purchase unique handmade items, and order custom-made 3D prints directly from makers on AtlasBasket.',
+  seoTitle: 'AtlasBasket',
+  seoDescription: 'Discover local artisans, handcrafted items, and custom products on AtlasBasket.',
+  browserTitle: 'AtlasBasket',
 };
 
 const str = (value: unknown, fallback: string | undefined): string =>

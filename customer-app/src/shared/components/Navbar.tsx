@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -23,36 +23,34 @@ function ShopMarquee() {
   const { data, isLoading } = useQuery({
     queryKey: ['shops', { searchQuery: undefined, coords: null, radius: 50 }],
     queryFn: () => shopListApi.getFeaturedShops(24),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const shops = data?.shops || [];
 
-  if (isLoading) {
-    return (
-      <div className="border-t border-white/[0.06] bg-white/[0.015] py-2 px-6 flex gap-6 overflow-hidden">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="skeleton-glass h-3 rounded-full flex-shrink-0" style={{ width: `${56 + i * 14}px` }} />
-        ))}
-      </div>
-    );
-  }
-  if (!shops.length) return null;
-
-  const doubled = [...shops, ...shops];
   return (
-    <div className="border-t border-white/[0.06] bg-white/[0.015] py-1.5 overflow-hidden marquee-container">
-      <div className="marquee-track flex items-center gap-0.5">
-        {doubled.map((shop, i) => (
-          <Link
-            key={`${shop.id}-${i}`}
-            href={`/shops/${shop.slug || shop.id}`}
-            className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-medium text-white/40 hover:text-white hover:bg-white/[0.06] transition-all whitespace-nowrap group"
-          >
-            <Store className="h-2.5 w-2.5 text-white/25 group-hover:text-white/70 transition-colors" />
-            {shop.name}
-          </Link>
-        ))}
-      </div>
+    <div className="border-t border-white/[0.06] bg-white/[0.015] min-h-[29px] overflow-hidden marquee-container flex items-center">
+      {isLoading ? (
+        <div className="py-1 px-6 flex gap-6 overflow-hidden w-full">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="skeleton-glass h-3 rounded-full flex-shrink-0" style={{ width: `${56 + i * 14}px` }} />
+          ))}
+        </div>
+      ) : shops.length > 0 ? (
+        <div className="marquee-track flex items-center gap-0.5 py-1">
+          {[...shops, ...shops].map((shop, i) => (
+            <Link
+              key={`${shop.id}-${i}`}
+              href={`/shops/${shop.slug || shop.id}`}
+              className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-medium text-white/40 hover:text-white hover:bg-white/[0.06] transition-all whitespace-nowrap group"
+            >
+              <Store className="h-2.5 w-2.5 text-white/25 group-hover:text-white/70 transition-colors" />
+              {shop.name}
+            </Link>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -145,6 +143,9 @@ export function Navbar() {
     queryKey: ['profile'],
     queryFn: async () => (await axiosInstance.get('/api/auth/profile')).data,
     enabled: !!session,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Load default address from profile if not set yet
@@ -158,10 +159,20 @@ export function Navbar() {
     }
   }, [session, profile, selectedAddressId, setLocation]);
 
-  // Invalidate queries when location changes
+  // Invalidate queries when location actually changes after initial mount
   const { selectedDistrict, selectedState } = useLocationStore();
+  const prevLocationRef = useRef<{ district: string; state: string } | null>(null);
   useEffect(() => {
-    if (selectedDistrict && selectedState) {
+    if (!prevLocationRef.current) {
+      prevLocationRef.current = { district: selectedDistrict, state: selectedState };
+      return;
+    }
+    const hasChanged =
+      prevLocationRef.current.district !== selectedDistrict ||
+      prevLocationRef.current.state !== selectedState;
+
+    if (hasChanged && selectedDistrict && selectedState) {
+      prevLocationRef.current = { district: selectedDistrict, state: selectedState };
       queryClient.invalidateQueries({ queryKey: ['shops'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['featured-shops'] });
@@ -175,6 +186,8 @@ export function Navbar() {
     queryFn: async () => (await axiosInstance.get('/api/cart')).data,
     enabled: !!session,
     staleTime: 60_000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const cartCount = cartData?.cart?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
 
@@ -182,8 +195,10 @@ export function Navbar() {
     queryKey: ['notifications'],
     queryFn: async () => (await axiosInstance.get('/api/notifications')).data,
     enabled: !!session,
-    refetchInterval: 15_000,
-    staleTime: 5_000,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const unreadCount = notifData?.unreadCount ?? (notifData?.notifications?.filter((notification) => !notification.isRead).length || 0);
 

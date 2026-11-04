@@ -8,7 +8,7 @@ import { storageService } from '@/features/storage/services/storage.service';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOnDemandChatSocket } from '@/features/chat/hooks/useOnDemandChatSocket';
+import { useChatSocket } from '@/features/chat/context/ChatSocketContext';
 import {
   MessageSquare,
   Send,
@@ -112,26 +112,25 @@ function SupportChatContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // On-demand WebSocket connection: exists ONLY while a conversation is open
-  const { connectionState, reconnect: reconnectSocket } = useOnDemandChatSocket({
-    role: 'customer',
-    conversationId: selectedConversationId,
-    onMessage: (payload) => {
-      if (payload.type === 'new_message' || payload.type === 'read_receipt' || payload.type === 'conversation_status_updated') {
-        queryClient.invalidateQueries({ queryKey: ['customer-conversation-detail', selectedConversationId] });
-        queryClient.invalidateQueries({ queryKey: ['customer-conversations'] });
-      }
-    },
-    onReconnect: () => {
-      // Re-fetch persisted messages from DB upon reconnecting to recover any offline messages
-      if (selectedConversationId) {
-        queryClient.invalidateQueries({ queryKey: ['customer-conversation-detail', selectedConversationId] });
-        queryClient.invalidateQueries({ queryKey: ['customer-conversations'] });
-      }
-    },
-  });
+  // Persistent WebSocket connection across entire session
+  const {
+    connectionState,
+    isConnected: wsConnected,
+    joinConversation,
+    sendMessage: sendPersistentMessage,
+    markConversationAsRead,
+    reconnect: reconnectSocket,
+  } = useChatSocket();
 
-  const wsConnected = connectionState === 'connected';
+  const [isSending, setIsSending] = useState(false);
+
+  // Subscribe to conversation room & mark as read when selected
+  useEffect(() => {
+    if (selectedConversationId) {
+      joinConversation(selectedConversationId);
+      markConversationAsRead(selectedConversationId);
+    }
+  }, [selectedConversationId, joinConversation, markConversationAsRead]);
 
   // Load detail for selected conversation
   const { data: detailData, isLoading: isDetailLoading } = useQuery({
@@ -142,7 +141,7 @@ function SupportChatContent() {
       return res.data;
     },
     enabled: !!selectedConversationId,
-    refetchInterval: wsConnected ? false : 5000, // Fallback polling if WS offline
+    refetchInterval: wsConnected ? false : 10000, // Light fallback polling only if WS offline
   });
 
   // Scroll to bottom on message updates
@@ -151,38 +150,38 @@ function SupportChatContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  // Send message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async (vars: { textOverride?: string; clientMessageId?: string } | void) => {
-      const textToSend = (vars?.textOverride ?? messageText).trim();
-      const attachmentsToSend = pendingAttachments.map((a) => a.url);
+  // Optimistic message send handler with retry support
+  const handleSendMessage = async (textOverride?: string, clientMessageIdOverride?: string) => {
+    const textToSend = (textOverride ?? messageText).trim();
+    const attachmentsToSend = pendingAttachments.map((a) => a.url);
 
-      if (!textToSend && attachmentsToSend.length === 0) return;
+    if (!textToSend && attachmentsToSend.length === 0) return;
+    if (!selectedConversationId) return;
 
-      const clientMessageId = vars?.clientMessageId || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const clientMsgId =
+      clientMessageIdOverride ||
+      `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-      const res = await axiosInstance.post(`/customer/api/conversations/${selectedConversationId}/messages`, {
+    setMessageText('');
+    setPendingAttachments([]);
+    setFailedMessage(null);
+    setIsSending(true);
+
+    try {
+      await sendPersistentMessage(selectedConversationId, {
         message: textToSend,
         attachments: attachmentsToSend,
-        clientMessageId,
+        clientMessageId: clientMsgId,
       });
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customer-conversation-detail', selectedConversationId] });
-      queryClient.invalidateQueries({ queryKey: ['customer-conversations'] });
-      setMessageText('');
-      setPendingAttachments([]);
-      setFailedMessage(null);
-    },
-    onError: (_err, vars) => {
-      const textToSave = (vars?.textOverride ?? messageText).trim();
+    } catch {
       setFailedMessage({
-        text: textToSave,
-        clientMessageId: vars?.clientMessageId || `msg_${Date.now()}_failed`,
+        text: textToSend,
+        clientMessageId: clientMsgId,
       });
-    },
-  });
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   // Handle uploading attachments in active chat
   const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,6 +271,7 @@ function SupportChatContent() {
       setModalUploadError(null);
       if (data?.conversation?.id) {
         setSelectedConversationId(data.conversation.id);
+        joinConversation(data.conversation.id);
       }
     },
     onError: (err: any) => {
@@ -327,6 +327,8 @@ function SupportChatContent() {
                   ? 'border-emerald-500/30 text-emerald-400'
                   : connectionState === 'reconnecting'
                   ? 'border-amber-500/30 text-amber-400'
+                  : connectionState === 'connecting'
+                  ? 'border-blue-500/30 text-blue-400'
                   : 'text-white/40'
               }`}
             >
@@ -336,20 +338,20 @@ function SupportChatContent() {
                     ? 'text-emerald-400'
                     : connectionState === 'reconnecting'
                     ? 'text-amber-400 animate-pulse'
+                    : connectionState === 'connecting'
+                    ? 'text-blue-400 animate-pulse'
                     : 'text-white/40'
                 }`}
               />
-              {selectedConversationId
-                ? wsConnected
-                  ? 'Live WebSocket Connected'
-                  : connectionState === 'reconnecting'
-                  ? 'Reconnecting...'
-                  : connectionState === 'connecting'
-                  ? 'Connecting...'
-                  : 'Persistent Storage'
-                : 'Standby (Chat Closed)'}
+              {wsConnected
+                ? 'Live WebSocket Connected'
+                : connectionState === 'reconnecting'
+                ? 'Reconnecting...'
+                : connectionState === 'connecting'
+                ? 'Connecting...'
+                : 'Offline (Persistent Storage)'}
             </Badge>
-            {selectedConversationId && connectionState === 'offline' && (
+            {!wsConnected && (
               <Button
                 size="sm"
                 variant="outline"
@@ -497,7 +499,13 @@ function SupportChatContent() {
                                   })}
                                 </span>
                                 {isCustomer && (
-                                  <CheckCheck className="h-3 w-3 text-indigo-200" />
+                                  msg.status === 'sending' ? (
+                                    <span title="Sending..."><Loader2 className="h-3 w-3 text-indigo-200 animate-spin" /></span>
+                                  ) : msg.status === 'failed' ? (
+                                    <span title="Delivery failed"><AlertCircle className="h-3 w-3 text-rose-300" /></span>
+                                  ) : (
+                                    <span title="Delivered"><CheckCheck className="h-3 w-3 text-indigo-200" /></span>
+                                  )
                                 )}
                               </div>
                             </div>
@@ -555,10 +563,7 @@ function SupportChatContent() {
                       <Button
                         size="sm"
                         onClick={() =>
-                          sendMessageMutation.mutate({
-                            textOverride: failedMessage.text,
-                            clientMessageId: failedMessage.clientMessageId,
-                          })
+                          handleSendMessage(failedMessage.text, failedMessage.clientMessageId)
                         }
                         className="bg-rose-600 hover:bg-rose-500 text-white text-[11px] h-7 gap-1"
                       >
@@ -626,7 +631,7 @@ function SupportChatContent() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey && (messageText.trim() || pendingAttachments.length > 0)) {
                         e.preventDefault();
-                        sendMessageMutation.mutate();
+                        handleSendMessage();
                       }
                     }}
                     className="flex-1 px-3 py-2 rounded-xl text-xs text-white bg-white/[0.05] border border-white/10 focus:outline-none focus:border-indigo-500"
@@ -636,12 +641,12 @@ function SupportChatContent() {
                     size="sm"
                     disabled={
                       (!messageText.trim() && pendingAttachments.length === 0) ||
-                      sendMessageMutation.isPending
+                      isSending
                     }
-                    onClick={() => sendMessageMutation.mutate()}
+                    onClick={() => handleSendMessage()}
                     className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-9 px-3"
                   >
-                    {sendMessageMutation.isPending ? (
+                    {isSending ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Send className="h-3.5 w-3.5" />

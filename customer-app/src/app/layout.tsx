@@ -4,6 +4,8 @@ import "./globals.css";
 import ReactQueryProvider from "@/lib/providers/ReactQueryProvider";
 import SessionProvider from "@/lib/providers/SessionProvider";
 import { BrandingProvider } from "@/lib/providers/BrandingProvider";
+import { ChatSocketProvider } from "@/features/chat/context/ChatSocketContext";
+import { AppShell } from "@/shared/components/AppShell";
 import { CartDrawer } from "@/features/cart/ui/CartDrawer";
 import { ComingSoonDialog } from "@/components/ui/ComingSoonDialog";
 import { PremiumDialogContainer } from "@/components/ui/PremiumDialogContainer";
@@ -27,27 +29,28 @@ export const viewport: Viewport = {
 
 const FALLBACK_METADATA: Metadata = {
   title: {
-    default: "Marketplace",
-    template: "%s | Marketplace",
+    default: "AtlasBasket",
+    template: "%s | AtlasBasket",
   },
-  description: "Discover local artisans, handcrafted items, and custom products.",
+  description: "Discover local artisans, handcrafted items, and custom products on AtlasBasket.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
   if (!BACKEND_URL) return FALLBACK_METADATA;
   try {
     const res = await fetch(`${BACKEND_URL}/api/branding/public?app=customer`, {
-      cache: "no-store",
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(1500),
     });
     if (!res.ok) return FALLBACK_METADATA;
     const b = await res.json();
     const seoTitle = typeof b?.seoTitle === "string" && b.seoTitle.trim() !== ""
       ? b.seoTitle.trim()
-      : "Marketplace";
+      : "AtlasBasket";
     const seoDescription = typeof b?.seoDescription === "string" && b.seoDescription.trim() !== ""
       ? b.seoDescription.trim()
-      : "Discover local artisans, handcrafted items, and custom products.";
-    const brandName = typeof b?.name === "string" && b.name.trim() !== "" ? b.name.trim() : "Marketplace";
+      : "Discover local artisans, handcrafted items, and custom products on AtlasBasket.";
+    const brandName = typeof b?.name === "string" && b.name.trim() !== "" ? b.name.trim() : "AtlasBasket";
     const browserTitle = typeof b?.browserTitle === "string" && b.browserTitle.trim() !== ""
       ? b.browserTitle.trim()
       : brandName;
@@ -76,29 +79,33 @@ export default function RootLayout({
         <SessionProvider>
           <ReactQueryProvider>
             <BrandingProvider>
-              {children}
-              <CartDrawer />
-              <ComingSoonDialog />
-              <AddressSelectorDialog />
-              <PremiumDialogContainer />
-              <FloatingSupportWidget />
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: '#18181b',
-                    color: '#f4f4f5',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
+              <ChatSocketProvider>
+                <AppShell>
+                  {children}
+                </AppShell>
+                <CartDrawer />
+                <ComingSoonDialog />
+                <AddressSelectorDialog />
+                <PremiumDialogContainer />
+                <FloatingSupportWidget />
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#18181b',
+                      color: '#f4f4f5',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      zIndex: 99999,
+                    },
+                  }}
+                  containerStyle={{
+                    top: 24,
+                    right: 24,
                     zIndex: 99999,
-                  },
-                }}
-                containerStyle={{
-                  top: 24,
-                  right: 24,
-                  zIndex: 99999,
-                }}
-              />
+                  }}
+                />
+              </ChatSocketProvider>
             </BrandingProvider>
           </ReactQueryProvider>
         </SessionProvider>

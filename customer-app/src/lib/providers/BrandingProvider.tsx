@@ -19,17 +19,40 @@ const BrandingContext = createContext<{
   refetchBranding: () => {},
 });
 
+const CACHE_KEY = 'atlasbasket_public_branding';
+
+function getInitialCachedBranding(): BrandingData {
+  if (typeof window === 'undefined') return DEFAULT_BRANDING;
+  try {
+    const raw = window.sessionStorage.getItem(CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return normalizeBranding(parsed);
+      }
+    }
+  } catch {}
+  return DEFAULT_BRANDING;
+}
+
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data, isLoading, refetch } = useQuery<BrandingData>({
     queryKey: ['public-branding', 'customer'],
     queryFn: async () => {
       const branding = await fetchBranding(axiosInstance);
-      return normalizeBranding(branding);
+      const normalized = normalizeBranding(branding);
+      try {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(CACHE_KEY, JSON.stringify(normalized));
+        }
+      } catch {}
+      return normalized;
     },
-    staleTime: 10_000,
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: true,
+    initialData: getInitialCachedBranding,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const branding = data || DEFAULT_BRANDING;
