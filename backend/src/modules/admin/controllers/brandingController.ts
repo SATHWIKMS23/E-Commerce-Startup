@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { AdminActionType } from "@prisma/client";
 import { logAdminAction } from "../utils/actionLogger.js";
 import { invalidatePublicCache } from "../../../middleware/cache.js";
+import { broadcastBrandingUpdated } from "../../../services/chat/chat.service.js";
 import type { BrandingApp, BrandingUpdate } from "../services/brandingService.js";
 import {
     getBrandingConfiguration,
@@ -120,6 +121,7 @@ export const updateAdminBranding = async (req: Request, res: Response) => {
         const branding = await saveBranding(input, adminId, app);
 
         invalidatePublicCache();
+        broadcastBrandingUpdated(app).catch(() => {});
 
         await logAdminAction({
             adminId,

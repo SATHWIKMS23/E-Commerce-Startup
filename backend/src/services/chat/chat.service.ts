@@ -368,6 +368,10 @@ export function handleIncomingRedisEvent(rawMessage: string): void {
                 broadcastLocalConversation(event.conversationId, typingPayload, false);
                 break;
             }
+            case "BRANDING_UPDATED": {
+                broadcastLocalBrandingUpdated(event.app);
+                break;
+            }
             default:
                 logger.warn("[WS:Redis] Unhandled Redis event type received", { eventType: event.eventType });
                 break;
@@ -954,6 +958,23 @@ function deliverLocalNotification(
     }
 }
 
+export function broadcastLocalBrandingUpdated(app: string = "CUSTOMER"): void {
+    const raw = JSON.stringify({
+        type: "branding_updated",
+        app,
+        timestamp: new Date().toISOString()
+    });
+    for (const [ws] of clients.entries()) {
+        if (ws.readyState === WebSocket.OPEN) {
+            try {
+                ws.send(raw);
+            } catch {
+                // Ignore socket send error
+            }
+        }
+    }
+}
+
 // ─── Public Cross-Process Broadcasters ───────────────────────────────────────
 
 /**
@@ -1119,5 +1140,21 @@ export async function sendRealtimeNotification(
         recipientType,
         recipientId,
         notification
+    });
+}
+
+/**
+ * Broadcasts a branding updated notification locally and publishes to Redis
+ * for cross-process invalidation so all connected clients receive it in real-time.
+ */
+export async function broadcastBrandingUpdated(app: string = "CUSTOMER"): Promise<boolean> {
+    // 1. Deliver to all local WebSocket clients connected to this process
+    broadcastLocalBrandingUpdated(app);
+
+    // 2. Publish across Redis to all other API processes
+    return publishWSEvent({
+        eventType: "BRANDING_UPDATED",
+        originProcessId: PROCESS_ID,
+        app
     });
 }

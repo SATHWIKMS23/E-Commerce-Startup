@@ -331,6 +331,16 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
         break;
       }
 
+      case 'branding_updated': {
+        try {
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.removeItem('atlasbasket_public_branding');
+          }
+        } catch {}
+        queryClient.invalidateQueries({ queryKey: ['public-branding'] });
+        break;
+      }
+
       default:
         break;
     }

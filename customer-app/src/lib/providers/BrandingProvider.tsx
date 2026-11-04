@@ -12,50 +12,54 @@ export type { BrandingData };
 const BrandingContext = createContext<{
   branding: BrandingData;
   isLoading: boolean;
+  isError: boolean;
   refetchBranding: () => void;
 }>({
   branding: DEFAULT_BRANDING,
   isLoading: true,
+  isError: false,
   refetchBranding: () => {},
 });
 
 const CACHE_KEY = 'atlasbasket_public_branding';
 
-function getInitialCachedBranding(): BrandingData {
-  if (typeof window === 'undefined') return DEFAULT_BRANDING;
+function getInitialCachedBranding(): BrandingData | undefined {
+  if (typeof window === 'undefined') return undefined;
   try {
     const raw = window.sessionStorage.getItem(CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === 'object' && (parsed.name || parsed.brandName || parsed.marketplaceName)) {
         return normalizeBranding(parsed);
       }
     }
   } catch {}
-  return DEFAULT_BRANDING;
+  return undefined;
 }
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data, isLoading, refetch } = useQuery<BrandingData>({
+  const { data, isLoading, isError, refetch } = useQuery<BrandingData>({
     queryKey: ['public-branding', 'customer'],
     queryFn: async () => {
       const branding = await fetchBranding(axiosInstance);
       const normalized = normalizeBranding(branding);
       try {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && (normalized.name || normalized.marketplaceName)) {
           window.sessionStorage.setItem(CACHE_KEY, JSON.stringify(normalized));
         }
       } catch {}
       return normalized;
     },
     initialData: getInitialCachedBranding,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
     gcTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 120 * 1000,
   });
 
   const branding = data || DEFAULT_BRANDING;
+  const isActuallyLoading = Boolean(isLoading || !branding.name);
 
   // Primary effect to sync title and meta tags when pathname or branding updates
   useEffect(() => {
@@ -125,7 +129,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   }, [branding.browserTitle, branding.name]);
 
   return (
-    <BrandingContext.Provider value={{ branding, isLoading, refetchBranding: refetch }}>
+    <BrandingContext.Provider value={{ branding, isLoading: isActuallyLoading, isError, refetchBranding: refetch }}>
       {children}
     </BrandingContext.Provider>
   );

@@ -34,26 +34,26 @@ export interface BrandingData {
 }
 
 export const DEFAULT_BRANDING: BrandingData = {
-  name: 'AtlasBasket',
-  marketplaceName: 'AtlasBasket',
+  name: '',
+  marketplaceName: '',
   logo: '',
   favicon: '',
-  tagline: 'Your local marketplace for everything',
-  shortName: 'AtlasBasket',
+  tagline: '',
+  shortName: '',
   logoUrl: '',
   faviconUrl: '',
-  heroBadge: 'The Local Marketplace for Everything',
-  heroHeadingLine1: 'Buy Anything.',
-  heroHeadingLine2: 'From Anyone.',
-  heroHeadingLine3: 'Near You.',
-  heroDescription: 'AtlasBasket is your local marketplace for everything — fashion, tech, food, prints, crafts, and beyond. Discover creators. Support neighbours.',
-  searchPlaceholder: 'Search products, shops on AtlasBasket…',
-  exploreShopsButtonText: 'Explore Shops',
-  browseProductsButtonText: 'Browse Products',
-  footerDescription: 'Discover local craft creators, purchase unique handmade items, and order custom-made 3D prints directly from makers on AtlasBasket.',
-  seoTitle: 'AtlasBasket',
-  seoDescription: 'Discover local artisans, handcrafted items, and custom products on AtlasBasket.',
-  browserTitle: 'AtlasBasket',
+  heroBadge: '',
+  heroHeadingLine1: '',
+  heroHeadingLine2: '',
+  heroHeadingLine3: '',
+  heroDescription: '',
+  searchPlaceholder: '',
+  exploreShopsButtonText: '',
+  browseProductsButtonText: '',
+  footerDescription: '',
+  seoTitle: '',
+  seoDescription: '',
+  browserTitle: '',
 };
 
 const str = (value: unknown, fallback: string | undefined): string =>
@@ -67,12 +67,12 @@ const cleanUrl = (url: unknown): string => {
 };
 
 export const normalizeBranding = (d: any): BrandingData => {
-  const nameVal = d?.customerTitle || d?.brandName || d?.name || d?.marketplaceName || DEFAULT_BRANDING.name;
-  const rawLogo = cleanUrl(d?.logo) || cleanUrl(d?.logoUrl) || DEFAULT_BRANDING.logo;
+  const nameVal = d?.customerTitle || d?.brandName || d?.name || d?.marketplaceName || '';
+  const rawLogo = cleanUrl(d?.logo) || cleanUrl(d?.logoUrl) || '';
   const logoVal = rawLogo;
   const rawFavicon = cleanUrl(d?.favicon) || cleanUrl(d?.faviconUrl) || rawLogo;
   const faviconVal = rawFavicon;
-  const taglineVal = str(d?.tagline, DEFAULT_BRANDING.tagline);
+  const taglineVal = str(d?.tagline, '');
   return {
     name: nameVal,
     marketplaceName: str(d?.marketplaceName, str(d?.brandName, nameVal)),
@@ -82,18 +82,18 @@ export const normalizeBranding = (d: any): BrandingData => {
     shortName: str(d?.shortName, nameVal),
     logoUrl: logoVal,
     faviconUrl: faviconVal,
-    heroBadge: str(d?.heroBadge, DEFAULT_BRANDING.heroBadge),
-    heroHeadingLine1: str(d?.heroHeadingLine1, DEFAULT_BRANDING.heroHeadingLine1),
-    heroHeadingLine2: str(d?.heroHeadingLine2, DEFAULT_BRANDING.heroHeadingLine2),
-    heroHeadingLine3: str(d?.heroHeadingLine3, DEFAULT_BRANDING.heroHeadingLine3),
-    heroDescription: str(d?.heroDescription, DEFAULT_BRANDING.heroDescription),
-    searchPlaceholder: str(d?.searchPlaceholder, DEFAULT_BRANDING.searchPlaceholder),
-    exploreShopsButtonText: str(d?.exploreShopsButtonText, DEFAULT_BRANDING.exploreShopsButtonText),
-    browseProductsButtonText: str(d?.browseProductsButtonText, DEFAULT_BRANDING.browseProductsButtonText),
-    footerDescription: str(d?.footerDescription, DEFAULT_BRANDING.footerDescription),
-    seoTitle: str(d?.seoTitle, DEFAULT_BRANDING.seoTitle),
-    seoDescription: str(d?.seoDescription, DEFAULT_BRANDING.seoDescription),
-    browserTitle: str(d?.browserTitle, DEFAULT_BRANDING.browserTitle),
+    heroBadge: str(d?.heroBadge, ''),
+    heroHeadingLine1: str(d?.heroHeadingLine1, ''),
+    heroHeadingLine2: str(d?.heroHeadingLine2, ''),
+    heroHeadingLine3: str(d?.heroHeadingLine3, ''),
+    heroDescription: str(d?.heroDescription, ''),
+    searchPlaceholder: str(d?.searchPlaceholder, ''),
+    exploreShopsButtonText: str(d?.exploreShopsButtonText, ''),
+    browseProductsButtonText: str(d?.browseProductsButtonText, ''),
+    footerDescription: str(d?.footerDescription, ''),
+    seoTitle: str(d?.seoTitle, nameVal),
+    seoDescription: str(d?.seoDescription, ''),
+    browserTitle: str(d?.browserTitle, nameVal),
     updatedAt: d?.updatedAt,
   };
 };

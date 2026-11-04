@@ -12,8 +12,9 @@ import axiosInstance from '@/lib/axios/axiosInstance';
 import { shopListApi } from '@/features/shops/shop-list/api/shopListApi';
 import { useLocationStore } from '@/lib/store/locationStore';
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
-import type { ProfileResponse } from '@/features/auth/profile/api/profileApi';
+import { profileApi, type ProfileResponse } from '@/features/auth/profile/api/profileApi';
 import { BrandLogo } from './BrandLogo';
+import { Skeleton } from '@/shared/components/Skeleton';
 import { useSiteLayout } from '@/lib/hooks/useSiteLayout';
 import { CustomerNotificationDropdown } from '@/features/notifications/ui/CustomerNotificationDropdown';
 
@@ -58,16 +59,42 @@ function ShopMarquee() {
 // ─── Location Chip ────────────────────────────────────────────────────────────
 
 function LocationChip({ profile, short }: { profile: ProfileResponse | undefined; short?: boolean }) {
-  const { selectedAddressId, selectedDistrict, selectedState, setAddressSelectorOpen } = useLocationStore();
+  const { selectedAddressId, selectedDistrict, selectedState, setAddressSelectorOpen, setLocation } = useLocationStore();
+
+  const { data: statesData, isLoading: isLoadingStates } = useQuery({
+    queryKey: ['location-states'],
+    queryFn: profileApi.getLocationsStates,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const activeAddress =
     profile?.user?.addresses?.find((address) => address.id === selectedAddressId) ||
     profile?.user?.addresses?.find((address) => address.isDefault) ||
     profile?.user?.addresses?.[0];
 
-  const city = activeAddress?.city || selectedDistrict || 'Select';
-  const state = activeAddress?.state || selectedState || 'Location';
-  const label = short ? city : `${city}, ${state}`;
+  const operationalState = statesData?.states?.[0]?.name;
+
+  useEffect(() => {
+    if (!selectedState && !activeAddress && operationalState) {
+      setLocation(null, operationalState, '');
+    }
+  }, [selectedState, activeAddress, operationalState, setLocation]);
+
+  const city = activeAddress?.city || selectedDistrict;
+  const state = activeAddress?.state || selectedState || operationalState;
+
+  if (isLoadingStates && !state && !city) {
+    return (
+      <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl border border-white/10 bg-white/[0.03] text-[10px] shrink-0">
+        <span className="text-[10px]">📍</span>
+        <Skeleton variant="glass" className="h-3 w-16 rounded" />
+      </div>
+    );
+  }
+
+  const label = short ? (city || state || '') : [city, state].filter(Boolean).join(', ');
 
   return (
     <button
@@ -75,7 +102,7 @@ function LocationChip({ profile, short }: { profile: ProfileResponse | undefined
       className="flex items-center gap-1 px-2.5 py-1 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 text-[10px] font-bold text-white/80 transition-all cursor-pointer shadow-sm select-none whitespace-nowrap shrink-0"
     >
       <span>📍</span>
-      <span className="truncate max-w-[100px]">{label}</span>
+      <span className="truncate max-w-[100px]">{label || 'Select'}</span>
       <span className="text-[8px] text-white/30">▼</span>
     </button>
   );
