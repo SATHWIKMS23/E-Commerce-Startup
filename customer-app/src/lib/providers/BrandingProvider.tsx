@@ -59,7 +59,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   });
 
   const branding = data || DEFAULT_BRANDING;
-  const isActuallyLoading = Boolean(isLoading || !branding.name);
+  const isActuallyLoading = Boolean(isLoading && !data);
 
   // Primary effect to sync title and meta tags when pathname or branding updates
   useEffect(() => {

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSiteLayout } from '@/lib/hooks/useSiteLayout';
+import { DEFAULT_BRANDING } from '@/lib/services/brandingService';
 
 const valueProps = [
   { icon: Users,       title: 'Support Local Crafters', desc: 'Every purchase goes directly to independent local makers in your area.' },
@@ -91,9 +92,8 @@ function ShopCard({ shop, index }: { shop: any; index: number }) {
 export function HomePage() {
   const { data: session } = useSession();
   const { shops, isLoading: shopsLoading } = useShopList();
-  const { homepageSections, branding } = useSiteLayout();
+  const { homepageSections, branding, isLoading: isBrandingLoading } = useSiteLayout();
   const marketplaceName = branding?.name || branding?.marketplaceName || 'AtlasBasket';
-
 
   const { data: categoriesData } = useQuery<any>({
     queryKey: ['home-categories'],
@@ -133,24 +133,24 @@ export function HomePage() {
               {/* Eyebrow badge */}
               <div className="inline-flex max-w-full items-center gap-2 px-2.5 sm:px-5 py-1.5 sm:py-2 rounded-full bg-white/[0.06] border border-white/10 text-[10px] sm:text-xs font-bold tracking-[0.02em] sm:tracking-widest text-white/65 uppercase mb-6 sm:mb-10">
                 <span className="w-1.5 h-1.5 rounded-full bg-white/70 inline-block animate-pulse" />
-                {branding.heroBadge}
+                {branding.heroBadge || DEFAULT_BRANDING.heroBadge}
               </div>
 
               {/* Headline — Responsive */}
               <h1 className="text-[clamp(2.625rem,12vw,3rem)] max-[340px]:text-[2.375rem] max-[340px]:leading-[0.98] sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.98] tracking-tight text-white mb-0 sm:mb-8">
-                {branding.heroHeadingLine1}<br />
+                {branding.heroHeadingLine1 || DEFAULT_BRANDING.heroHeadingLine1}<br />
                 <span
                   className="bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent"
                 >
-                  {branding.heroHeadingLine2}
+                  {branding.heroHeadingLine2 || DEFAULT_BRANDING.heroHeadingLine2}
                 </span><br />
-                {branding.heroHeadingLine3}
+                {branding.heroHeadingLine3 || DEFAULT_BRANDING.heroHeadingLine3}
               </h1>
             </div>
 
             {/* Subheading */}
             <p className="mt-6 text-sm sm:text-base md:text-lg text-white/55 max-w-[22rem] sm:max-w-[560px] mx-auto leading-[1.5] max-[340px]:leading-[1.4] sm:leading-relaxed font-normal sm:mt-0 sm:mb-12">
-              {branding.heroDescription}
+              {branding.heroDescription || DEFAULT_BRANDING.heroDescription}
             </p>
 
             {/* CTAs */}
@@ -159,14 +159,14 @@ export function HomePage() {
                 <button
                   className="w-full sm:w-auto h-11 sm:h-14 px-4 sm:px-8 rounded-xl bg-white text-black font-bold sm:font-extrabold text-[13px] sm:text-base cursor-pointer flex items-center justify-center gap-2.5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
                 >
-                  {branding.exploreShopsButtonText} <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                  {branding.exploreShopsButtonText || DEFAULT_BRANDING.exploreShopsButtonText} <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </Link>
               <Link href="/products" className="w-[min(13.5rem,calc(100vw-2rem))] sm:w-auto">
                 <button
                   className="w-full sm:w-auto h-11 sm:h-14 px-4 sm:px-8 rounded-xl bg-transparent text-white/85 border border-white/20 font-bold text-[13px] sm:text-base cursor-pointer transition-all hover:bg-white/10 hover:border-white/40 hover:text-white"
                 >
-                  {branding.browseProductsButtonText}
+                  {branding.browseProductsButtonText || DEFAULT_BRANDING.browseProductsButtonText}
                 </button>
               </Link>
             </div>

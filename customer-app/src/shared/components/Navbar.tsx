@@ -84,17 +84,7 @@ function LocationChip({ profile, short }: { profile: ProfileResponse | undefined
 
   const city = activeAddress?.city || selectedDistrict;
   const state = activeAddress?.state || selectedState || operationalState;
-
-  if (isLoadingStates && !state && !city) {
-    return (
-      <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl border border-white/10 bg-white/[0.03] text-[10px] shrink-0">
-        <span className="text-[10px]">📍</span>
-        <Skeleton variant="glass" className="h-3 w-16 rounded" />
-      </div>
-    );
-  }
-
-  const label = short ? (city || state || '') : [city, state].filter(Boolean).join(', ');
+  const label = short ? (city || state || 'Location') : [city, state].filter(Boolean).join(', ') || 'Location';
 
   return (
     <button
@@ -102,7 +92,7 @@ function LocationChip({ profile, short }: { profile: ProfileResponse | undefined
       className="flex items-center gap-1 px-2.5 py-1 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 text-[10px] font-bold text-white/80 transition-all cursor-pointer shadow-sm select-none whitespace-nowrap shrink-0"
     >
       <span>📍</span>
-      <span className="truncate max-w-[100px]">{label || 'Select'}</span>
+      <span className="truncate max-w-[100px]">{label}</span>
       <span className="text-[8px] text-white/30">▼</span>
     </button>
   );

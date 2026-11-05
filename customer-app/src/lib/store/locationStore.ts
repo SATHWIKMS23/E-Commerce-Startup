@@ -40,10 +40,10 @@ export const useLocationStore = create<LocationState>((set) => ({
   activeStates: [],
   districtRequired: true,
   setActiveStatesData: (states, districtRequired) => set({ activeStates: states, districtRequired }),
-  // Selected location tracking initial values (dynamically populated from admin-managed operational locations or customer profile)
+  // Selected location tracking initial values
   selectedAddressId: null,
-  selectedState: '',
-  selectedDistrict: '',
+  selectedState: 'Karnataka',
+  selectedDistrict: 'Mysuru',
   addressSelectorOpen: false,
   setAddressSelectorOpen: (open) => set({ addressSelectorOpen: open }),
   setLocation: (addressId, state, district) => 
