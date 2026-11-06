@@ -60,9 +60,22 @@ function resolveWebSocketUrl(token?: string | null): string {
   if (envWs) {
     base = envWs.replace(/\/$/, '');
   } else {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    if (window.location.hostname === 'localhost' && window.location.port === '3000') {
-      base = `${protocol}//localhost:3001`;
+    const isHttps = window.location.protocol === 'https:';
+    const protocol = isHttps ? 'wss:' : 'ws:';
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+
+    if (hostname.endsWith('atlasbasket.com')) {
+      base = `${protocol}//api.atlasbasket.com`;
+    } else if (
+      port === '3000' ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)
+    ) {
+      // Local dev or mobile testing on LAN: customer-app runs on 3000, customer-api runs on 3001
+      const targetHost = hostname || 'localhost';
+      base = `${protocol}//${targetHost}:3001`;
     } else {
       base = `${protocol}//${window.location.host}`;
     }
@@ -121,15 +134,20 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
   const closeSocket = useCallback(() => {
     clearTimers();
     if (socketRef.current) {
+      const oldWs = socketRef.current;
+      socketRef.current = null;
       try {
+        oldWs.onopen = null;
+        oldWs.onmessage = null;
+        oldWs.onerror = null;
+        oldWs.onclose = null;
         if (
-          socketRef.current.readyState === WebSocket.OPEN ||
-          socketRef.current.readyState === WebSocket.CONNECTING
+          oldWs.readyState === WebSocket.OPEN ||
+          oldWs.readyState === WebSocket.CONNECTING
         ) {
-          socketRef.current.close(1000, 'Client closed');
+          oldWs.close(1000, 'Client closed');
         }
       } catch {}
-      socketRef.current = null;
     }
     setConnectionState('disconnected');
   }, [clearTimers]);
@@ -374,6 +392,7 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
       socketRef.current = ws;
 
       ws.onopen = () => {
+        if (socketRef.current !== ws) return;
         setConnectionState('connected');
         const wasReconnecting = reconnectAttemptsRef.current > 0;
         reconnectAttemptsRef.current = 0;
@@ -405,6 +424,7 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
       };
 
       ws.onmessage = (event) => {
+        if (socketRef.current !== ws) return;
         try {
           const payload = JSON.parse(event.data);
           handleIncomingMessage(payload);
@@ -414,6 +434,10 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
       };
 
       ws.onclose = (event) => {
+        if (socketRef.current !== ws && socketRef.current !== null) {
+          return;
+        }
+
         clearTimers();
         socketRef.current = null;
 

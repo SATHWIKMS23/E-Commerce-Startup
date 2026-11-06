@@ -298,88 +298,127 @@ function SupportChatContent() {
   ].includes(inquiryCategory);
 
   return (
-    <div className="min-h-screen bg-[#07070a] text-white p-3 sm:p-6 flex flex-col">
-      <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-3">
+    <div className="h-[100dvh] min-h-[100dvh] max-h-[100dvh] bg-[#07070a] text-white p-2.5 sm:p-4 md:p-6 flex flex-col overflow-hidden">
+      <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-2.5 sm:space-y-4">
+        {/* Responsive Header: 2-row layout on mobile, single-row on desktop */}
+        <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-2.5 sm:pb-3.5 gap-2">
+          {/* Row 1 on mobile / Left group on desktop */}
+          <div className="flex items-center justify-between gap-2 min-w-0">
             <Link
               href="/"
-              className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+              className="h-9 w-9 shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+              aria-label="Back to home"
+              title="Back to home"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4 text-white" />
             </Link>
-            <div>
-              <h1 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-indigo-400" />
-                Customer Support &amp; Dispute Desk
+
+            <div className="flex-1 min-w-0 px-1">
+              <h1 className="text-sm sm:text-base md:text-lg font-bold flex items-center gap-1.5 min-w-0 text-white">
+                <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-400 shrink-0" />
+                <span className="truncate">Customer Support &amp; Dispute Desk</span>
               </h1>
-              <p className="text-xs text-white/50">
+              <p className="text-[11px] sm:text-xs text-white/50 truncate hidden sm:block">
                 Direct messaging with marketplace trust &amp; customer care team.
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className={`text-[10px] ${
-                wsConnected
-                  ? 'border-emerald-500/30 text-emerald-400'
-                  : connectionState === 'reconnecting'
-                  ? 'border-amber-500/30 text-amber-400'
-                  : connectionState === 'connecting'
-                  ? 'border-blue-500/30 text-blue-400'
-                  : 'text-white/40'
-              }`}
-            >
-              <Circle
-                className={`h-2 w-2 mr-1.5 fill-current ${
-                  wsConnected
-                    ? 'text-emerald-400'
-                    : connectionState === 'reconnecting'
-                    ? 'text-amber-400 animate-pulse'
-                    : connectionState === 'connecting'
-                    ? 'text-blue-400 animate-pulse'
-                    : 'text-white/40'
-                }`}
-              />
-              {wsConnected
-                ? 'Live WebSocket Connected'
-                : connectionState === 'reconnecting'
-                ? 'Reconnecting...'
-                : connectionState === 'connecting'
-                ? 'Connecting...'
-                : 'Offline (Persistent Storage)'}
-            </Badge>
-            {!wsConnected && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => reconnectSocket()}
-                className="text-[10px] h-6 px-2 border-white/10 text-white/50 hover:text-white"
-              >
-                Reconnect
-              </Button>
-            )}
+
+            {/* Mobile-only New Inquiry button on the right of Row 1 */}
             <Button
               size="sm"
               onClick={() => setShowNewModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 shadow-lg shadow-indigo-950/50"
+              className="sm:hidden shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs h-9 px-2.5 rounded-xl gap-1 shadow-lg shadow-indigo-950/50"
+              aria-label="Start new support inquiry"
             >
-              <Plus className="h-3.5 w-3.5" /> Start New Inquiry
+              <Plus className="h-3.5 w-3.5" />
+              <span>New</span>
             </Button>
+          </div>
+
+          {/* Row 2 on mobile / Right group on desktop */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+            <p className="text-[11px] text-white/50 truncate sm:hidden flex-1 min-w-0 mr-1">
+              Marketplace customer care
+            </p>
+
+            <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+              <Badge
+                variant="outline"
+                className={`text-[10px] h-6 px-2 whitespace-nowrap shrink-0 ${
+                  wsConnected
+                    ? 'border-emerald-500/30 text-emerald-400'
+                    : connectionState === 'reconnecting'
+                    ? 'border-amber-500/30 text-amber-400'
+                    : connectionState === 'connecting'
+                    ? 'border-blue-500/30 text-blue-400'
+                    : 'border-white/10 text-white/40'
+                }`}
+              >
+                <Circle
+                  className={`h-2 w-2 mr-1.5 fill-current shrink-0 ${
+                    wsConnected
+                      ? 'text-emerald-400'
+                      : connectionState === 'reconnecting'
+                      ? 'text-amber-400 animate-pulse'
+                      : connectionState === 'connecting'
+                      ? 'text-blue-400 animate-pulse'
+                      : 'text-white/40'
+                  }`}
+                />
+                {wsConnected ? (
+                  <>
+                    <span className="sm:hidden">Live</span>
+                    <span className="hidden sm:inline">Live WebSocket Connected</span>
+                  </>
+                ) : connectionState === 'reconnecting' ? (
+                  'Reconnecting...'
+                ) : connectionState === 'connecting' ? (
+                  'Connecting...'
+                ) : (
+                  <>
+                    <span className="sm:hidden">Offline</span>
+                    <span className="hidden sm:inline">Offline (Persistent Storage)</span>
+                  </>
+                )}
+              </Badge>
+
+              {!wsConnected && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => reconnectSocket()}
+                  className="text-[10px] h-6 px-2 border-white/10 text-white/70 hover:text-white shrink-0"
+                >
+                  <RefreshCw className="h-2.5 w-2.5 mr-1" />
+                  Reconnect
+                </Button>
+              )}
+
+              {/* Desktop-only Start New Inquiry button */}
+              <Button
+                size="sm"
+                onClick={() => setShowNewModal(true)}
+                className="hidden sm:flex bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 shadow-lg shadow-indigo-950/50 h-9 shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" /> Start New Inquiry
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Two-Pane Chat Container */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 min-h-[520px]">
+        {/* Two-Pane Chat Container: Single column toggle on mobile, side-by-side on md+ */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 overflow-hidden">
           {/* Left Pane: Conversations */}
-          <div className="md:col-span-4 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col min-h-0 overflow-hidden">
-            <div className="p-3.5 border-b border-white/10 font-semibold text-xs text-white/70 flex items-center justify-between">
+          <div
+            className={`rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col min-h-0 overflow-hidden md:col-span-4 ${
+              selectedConversationId ? 'hidden md:flex' : 'flex'
+            }`}
+          >
+            <div className="p-3 sm:p-3.5 border-b border-white/10 font-semibold text-xs text-white/70 flex items-center justify-between shrink-0">
               <span>Your Inquiries ({conversations.length})</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5 overscroll-contain">
               {isConvLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="p-3">
@@ -387,16 +426,16 @@ function SupportChatContent() {
                   </div>
                 ))
               ) : conversations.length === 0 ? (
-                <div className="p-8 text-center text-xs text-white/40 space-y-2">
+                <div className="p-8 text-center text-xs text-white/40 space-y-2.5 my-auto">
                   <HelpCircle className="h-8 w-8 text-white/10 mx-auto" />
                   <p>No support conversations yet.</p>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowNewModal(true)}
-                    className="border-white/10 text-xs text-indigo-400"
+                    className="border-white/10 text-xs text-indigo-400 hover:text-white"
                   >
-                    Open Support Inquiry
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Open Support Inquiry
                   </Button>
                 </div>
               ) : (
@@ -407,31 +446,31 @@ function SupportChatContent() {
                     <div
                       key={c.id}
                       onClick={() => setSelectedConversationId(c.id)}
-                      className={`p-3.5 cursor-pointer transition-colors ${
+                      className={`p-3 sm:p-3.5 cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-indigo-950/40 border-l-2 border-indigo-400'
                           : 'hover:bg-white/[0.03]'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-xs text-white truncate max-w-[170px]">
+                      <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
+                        <span className="font-semibold text-xs text-white truncate flex-1 min-w-0">
                           {c.subject}
                         </span>
-                        <span className="text-[10px] text-white/40">
+                        <span className="text-[10px] text-white/40 shrink-0">
                           {new Date(c.lastMessageAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-white/50">
-                        <span className="truncate max-w-[180px]">
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-white/50 min-w-0">
+                        <span className="truncate flex-1 min-w-0">
                           {lastMsg ? lastMsg.message : 'No messages'}
                         </span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {c.unreadCount > 0 && (
                             <span className="h-4 min-w-4 px-1 rounded-full bg-indigo-600 text-white font-bold text-[9px] flex items-center justify-center">
                               {c.unreadCount}
                             </span>
                           )}
-                          <Badge variant="outline" className="text-[9px]">
+                          <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0">
                             {c.status}
                           </Badge>
                         </div>
@@ -444,34 +483,59 @@ function SupportChatContent() {
           </div>
 
           {/* Right Pane: Active Chat Room */}
-          <div className="md:col-span-8 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col min-h-0 overflow-hidden">
+          <div
+            className={`rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col min-h-0 overflow-hidden md:col-span-8 ${
+              selectedConversationId ? 'flex' : 'hidden md:flex'
+            }`}
+          >
             {selectedConversationId && currentConv ? (
               <>
                 {/* Conversation Header */}
-                <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-black/40">
-                  <div>
-                    <h3 className="font-bold text-xs text-white">{currentConv.subject}</h3>
-                    <div className="flex items-center gap-2 text-[10px] text-white/40 mt-0.5">
-                      <span>Marketplace Official Support Desk</span>
-                      {currentConv.relatedEntityType === 'ORDER' && currentConv.relatedEntityId && (
-                        <>
-                          <span>·</span>
-                          <span className="text-amber-400 flex items-center gap-1 font-mono">
-                            <Package className="h-3 w-3" /> Related Order
-                          </span>
-                        </>
-                      )}
+                <div className="p-3 sm:p-3.5 border-b border-white/10 flex items-center justify-between bg-black/40 shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* Mobile Back button to return to Inquiries list */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedConversationId(null)}
+                      className="md:hidden h-8 w-8 -ml-1 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-white/70 hover:text-white shrink-0 transition-colors"
+                      aria-label="Back to inquiries list"
+                      title="Back to inquiries list"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-xs sm:text-sm text-white truncate">{currentConv.subject}</h3>
+                      <div className="flex items-center gap-2 text-[10px] text-white/40 mt-0.5 truncate">
+                        <span className="shrink-0">Marketplace Support Desk</span>
+                        {currentConv.relatedEntityType === 'ORDER' && currentConv.relatedEntityId && (
+                          <>
+                            <span className="shrink-0">·</span>
+                            <span className="text-amber-400 flex items-center gap-1 font-mono shrink-0">
+                              <Package className="h-3 w-3" /> Related Order
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-[10px] shrink-0 uppercase ml-2">
                     {currentConv.status}
                   </Badge>
                 </div>
 
                 {/* Messages Body */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 overscroll-contain">
                   {isDetailLoading ? (
-                    <Skeleton className="h-full w-full bg-white/5" />
+                    <div className="space-y-3">
+                      <Skeleton className="h-16 w-3/4 bg-white/5 rounded-2xl" />
+                      <Skeleton className="h-16 w-3/4 ml-auto bg-white/5 rounded-2xl" />
+                      <Skeleton className="h-16 w-2/3 bg-white/5 rounded-2xl" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/40 space-y-2">
+                      <HelpCircle className="h-8 w-8 text-white/10" />
+                      <p className="text-xs">No messages in this inquiry yet.</p>
+                    </div>
                   ) : (
                     messages.map((msg: any) => {
                       const isCustomer = msg.senderType === 'CUSTOMER';
@@ -483,15 +547,15 @@ function SupportChatContent() {
                           } max-w-full`}
                         >
                           <div
-                            className={`max-w-[78%] rounded-2xl p-3 text-xs shadow-sm space-y-2 ${
+                            className={`max-w-[88%] sm:max-w-[78%] rounded-2xl p-3 text-xs shadow-sm space-y-2 break-words ${
                               isCustomer
                                 ? 'bg-indigo-600 text-white'
                                 : 'bg-white/10 text-white/95 border border-white/10'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-3 text-[10px] opacity-75 font-semibold">
-                              <span>{isCustomer ? 'You' : msg.senderName || 'Customer Support Team'}</span>
-                              <div className="flex items-center gap-1">
+                              <span className="truncate">{isCustomer ? 'You' : msg.senderName || 'Support Team'}</span>
+                              <div className="flex items-center gap-1 shrink-0">
                                 <span>
                                   {new Date(msg.createdAt).toLocaleTimeString([], {
                                     hour: '2-digit',
@@ -510,7 +574,7 @@ function SupportChatContent() {
                               </div>
                             </div>
 
-                            {msg.message && <p className="whitespace-pre-wrap leading-relaxed">{msg.message}</p>}
+                            {msg.message && <p className="whitespace-pre-wrap leading-relaxed break-words">{msg.message}</p>}
 
                             {/* Attachments rendering */}
                             {msg.attachments && msg.attachments.length > 0 && (
@@ -528,7 +592,7 @@ function SupportChatContent() {
                                       <img
                                         src={attUrl}
                                         alt="attachment"
-                                        className="max-h-48 rounded-lg object-cover hover:opacity-90 transition-opacity"
+                                        className="max-h-48 max-w-full rounded-lg object-cover hover:opacity-90 transition-opacity"
                                       />
                                     </a>
                                   ) : (
@@ -539,9 +603,9 @@ function SupportChatContent() {
                                       rel="noopener noreferrer"
                                       className="flex items-center gap-2 p-2 rounded-lg bg-black/20 hover:bg-black/30 border border-white/10 text-[11px] text-white"
                                     >
-                                      <FileText className="h-4 w-4 text-white/60" />
-                                      <span className="truncate flex-1">Supporting Document</span>
-                                      <ExternalLink className="h-3 w-3 text-white/40" />
+                                      <FileText className="h-4 w-4 text-white/60 shrink-0" />
+                                      <span className="truncate flex-1 min-w-0">Supporting Document</span>
+                                      <ExternalLink className="h-3 w-3 text-white/40 shrink-0" />
                                     </a>
                                   );
                                 })}
@@ -555,17 +619,17 @@ function SupportChatContent() {
 
                   {/* Failed Message Banner with Retry */}
                   {failedMessage && (
-                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
-                        <span>Failed to deliver message: "{failedMessage.text}"</span>
+                        <span className="truncate">Failed to deliver message</span>
                       </div>
                       <Button
                         size="sm"
                         onClick={() =>
                           handleSendMessage(failedMessage.text, failedMessage.clientMessageId)
                         }
-                        className="bg-rose-600 hover:bg-rose-500 text-white text-[11px] h-7 gap-1"
+                        className="bg-rose-600 hover:bg-rose-500 text-white text-[11px] h-7 px-2.5 gap-1 shrink-0"
                       >
                         <RefreshCw className="h-3 w-3" /> Retry
                       </Button>
@@ -577,18 +641,18 @@ function SupportChatContent() {
 
                 {/* Attachments preview tray */}
                 {pendingAttachments.length > 0 && (
-                  <div className="px-3 pt-2 bg-black/40 border-t border-white/10 flex items-center gap-2 overflow-x-auto">
+                  <div className="px-3 py-1.5 bg-black/40 border-t border-white/10 flex items-center gap-2 overflow-x-auto shrink-0">
                     {pendingAttachments.map((att, i) => (
                       <div
                         key={i}
-                        className="h-8 px-2.5 rounded-lg bg-white/10 border border-white/10 flex items-center gap-1.5 text-xs text-white"
+                        className="h-8 px-2.5 rounded-lg bg-white/10 border border-white/10 flex items-center gap-1.5 text-xs text-white shrink-0"
                       >
-                        <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                        <FileText className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
                         <span className="truncate max-w-[120px]">{att.name}</span>
                         <button
                           type="button"
                           onClick={() => setPendingAttachments((p) => p.filter((_, idx) => idx !== i))}
-                          className="text-white/40 hover:text-white"
+                          className="text-white/40 hover:text-white ml-1"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -598,7 +662,7 @@ function SupportChatContent() {
                 )}
 
                 {/* Input Tray */}
-                <div className="p-3 border-t border-white/10 bg-black/30 flex items-center gap-2">
+                <div className="p-2.5 sm:p-3 border-t border-white/10 bg-black/30 flex items-center gap-2 shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
                   <input
                     type="file"
                     ref={attachmentInputRef}
@@ -614,6 +678,7 @@ function SupportChatContent() {
                     disabled={isUploadingAttachment}
                     onClick={() => attachmentInputRef.current?.click()}
                     title="Attach file or photo"
+                    aria-label="Attach file or photo"
                     className="border-white/10 text-white/60 hover:text-white h-9 w-9 p-0 rounded-xl shrink-0"
                   >
                     {isUploadingAttachment ? (
@@ -634,7 +699,7 @@ function SupportChatContent() {
                         handleSendMessage();
                       }
                     }}
-                    className="flex-1 px-3 py-2 rounded-xl text-xs text-white bg-white/[0.05] border border-white/10 focus:outline-none focus:border-indigo-500"
+                    className="flex-1 min-w-0 px-3 py-2 rounded-xl text-xs text-white bg-white/[0.05] border border-white/10 focus:outline-none focus:border-indigo-500 placeholder:text-white/40 h-9"
                   />
 
                   <Button
@@ -644,7 +709,8 @@ function SupportChatContent() {
                       isSending
                     }
                     onClick={() => handleSendMessage()}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-9 px-3"
+                    aria-label="Send message"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-9 px-3 shrink-0"
                   >
                     {isSending ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -655,7 +721,7 @@ function SupportChatContent() {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-white/40 space-y-2">
+              <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 text-center text-white/40 space-y-2">
                 <MessageSquare className="h-10 w-10 text-white/10" />
                 <p className="text-xs">Select an inquiry or start a new message to chat with support.</p>
               </div>
@@ -665,8 +731,8 @@ function SupportChatContent() {
 
         {/* START NEW SUPPORT INQUIRY MODAL (Full Feature Implementation) */}
         {showNewModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-            <div className="max-w-lg w-full max-h-[calc(100dvh-3rem)] bg-[#0d0d14] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+            <div className="w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[calc(100dvh-3rem)] bg-[#0d0d14] border-t sm:border border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
               {/* Modal Header */}
               <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-white/[0.02]">
                 <div className="flex items-center gap-2.5">
@@ -917,7 +983,7 @@ function SupportChatContent() {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-4 sm:p-5 border-t border-white/10 flex items-center justify-end gap-2 shrink-0 bg-white/[0.02]">
+              <div className="p-3.5 sm:p-5 border-t border-white/10 flex items-center justify-end gap-2 shrink-0 bg-white/[0.02] pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:pb-5">
                 <Button
                   size="sm"
                   variant="outline"
