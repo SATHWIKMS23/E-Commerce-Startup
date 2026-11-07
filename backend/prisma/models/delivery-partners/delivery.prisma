@@ -1,36 +1,31 @@
-// =============================================================================
-// Delivery — pickup from SellerAddress, dropoff to CustomerAddress
-// =============================================================================
-
 model Delivery {
-  id                       String         @id @default(cuid())
-  deliveryNumber           String         @unique @db.VarChar(30)
-  sellerOrderId            String         @unique
+  id                       String               @id @default(cuid())
+  deliveryNumber           String               @unique @db.VarChar(30)
+  sellerOrderId            String               @unique
   deliveryPartnerId        String
   pickupSellerAddressId    String
   dropoffCustomerAddressId String
-  status                   DeliveryStatus @default(ASSIGNED)
+  status                   DeliveryStatus       @default(ASSIGNED)
   pickupAddressSnapshot    Json
   deliveryAddressSnapshot  Json
   estimatedPickupAt        DateTime?
   actualPickupAt           DateTime?
   estimatedDeliveryAt      DateTime?
   actualDeliveryAt         DateTime?
-  assignedAt               DateTime       @default(now())
+  assignedAt               DateTime             @default(now())
   acceptedAt               DateTime?
   completedAt              DateTime?
   failedAt                 DateTime?
-  failureReason            String?        @db.Text
-  notes                    String?        @db.Text
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
-
-  sellerOrder            SellerOrder          @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
-  deliveryPartner        DeliveryPartner      @relation(fields: [deliveryPartnerId], references: [id], onDelete: Restrict)
-  pickupSellerAddress    SellerAddress        @relation("DeliveryPickupAddress", fields: [pickupSellerAddressId], references: [id], onDelete: Restrict)
-  dropoffCustomerAddress CustomerAddress      @relation("DeliveryDropoffAddress", fields: [dropoffCustomerAddressId], references: [id], onDelete: Restrict)
-  proofs                 DeliveryProof[]
-  timelineEvents         OrderTimelineEvent[]
+  failureReason            String?
+  notes                    String?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  deliveryPartner          DeliveryPartner      @relation(fields: [deliveryPartnerId], references: [id])
+  dropoffCustomerAddress   CustomerAddress      @relation("DeliveryDropoffAddress", fields: [dropoffCustomerAddressId], references: [id])
+  pickupSellerAddress      SellerAddress        @relation("DeliveryPickupAddress", fields: [pickupSellerAddressId], references: [id])
+  sellerOrder              SellerOrder          @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
+  proofs                   DeliveryProof[]
+  timelineEvents           OrderTimelineEvent[]
 
   @@index([deliveryPartnerId])
   @@index([pickupSellerAddressId])

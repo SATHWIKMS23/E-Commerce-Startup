@@ -1,22 +1,13 @@
-// =============================================================================
-// AdminRole — the SINGLE authorization model for the Admin panel.
-// -----------------------------------------------------------------------------
-// One role has an explicit list of permission keys (e.g. "customers.manage").
-// `Admin.role` (legacy string) is kept in sync for backwards compatibility;
-// `Admin.roleId` is the authoritative link to a row in this table.
-// =============================================================================
-
 model AdminRole {
   id          String   @id @default(cuid())
   name        String   @unique @db.VarChar(60)
   displayName String   @db.VarChar(80)
-  description String?  @db.Text
+  description String?
   isSystem    Boolean  @default(false)
   permissions String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  admins Admin[]
+  admins      Admin[]
 
   @@index([isSystem])
   @@map("admin_roles")

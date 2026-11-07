@@ -1,21 +1,16 @@
-// =============================================================================
-// AdminAction — immutable audit log of all admin operations
-// =============================================================================
-
 model AdminAction {
   id            String          @id @default(cuid())
   adminId       String
   actionType    AdminActionType
   targetType    String          @db.VarChar(50)
   targetId      String          @db.VarChar(30)
-  description   String          @db.Text
+  description   String
   previousValue Json?
   newValue      Json?
   ipAddress     String?         @db.VarChar(45)
   userAgent     String?         @db.VarChar(512)
   performedAt   DateTime        @default(now())
-
-  admin Admin @relation(fields: [adminId], references: [id], onDelete: Restrict)
+  admin         Admin           @relation(fields: [adminId], references: [id])
 
   @@index([adminId])
   @@index([actionType])

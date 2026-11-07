@@ -1,26 +1,21 @@
-// =============================================================================
-// ProductVariant — size/color/SKU variants with independent inventory
-// =============================================================================
-
 model ProductVariant {
-  id               String   @id @default(cuid())
+  id               String         @id @default(cuid())
   productId        String
-  name             String   @db.VarChar(200)
-  sku              String   @db.VarChar(100)
-  price            Decimal  @db.Decimal(12, 2)
-  compareAtPrice   Decimal? @db.Decimal(12, 2)
-  stockQuantity    Int      @default(0)
-  reservedQuantity Int      @default(0)
+  name             String         @db.VarChar(200)
+  sku              String         @db.VarChar(100)
+  price            Decimal        @db.Decimal(12, 2)
+  compareAtPrice   Decimal?       @db.Decimal(12, 2)
+  stockQuantity    Int            @default(0)
+  reservedQuantity Int            @default(0)
   attributes       Json?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cartItems     CartItem[]
-  wishlistItems WishlistItem[]
-  orderItems    OrderItem[]
-  inventoryLogs InventoryLog[]
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  cartItems        CartItem[]
+  inventoryLogs    InventoryLog[]
+  orderItems       OrderItem[]
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  wishlistItems    WishlistItem[]
 
   @@unique([productId, sku])
   @@index([productId])

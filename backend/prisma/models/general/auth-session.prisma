@@ -1,7 +1,3 @@
-// =============================================================================
-// Auth refresh tokens — separate per entity (never shared across roles)
-// =============================================================================
-
 model CustomerRefreshToken {
   id         String    @id @default(cuid())
   customerId String
@@ -9,8 +5,7 @@ model CustomerRefreshToken {
   expiresAt  DateTime
   revokedAt  DateTime?
   createdAt  DateTime  @default(now())
-
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
   @@index([expiresAt])
@@ -24,8 +19,7 @@ model SellerRefreshToken {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
-
-  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller    Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([sellerId])
   @@index([expiresAt])
@@ -33,14 +27,13 @@ model SellerRefreshToken {
 }
 
 model DeliveryPartnerRefreshToken {
-  id                String    @id @default(cuid())
+  id                String          @id @default(cuid())
   deliveryPartnerId String
-  tokenHash         String    @unique @db.VarChar(255)
+  tokenHash         String          @unique @db.VarChar(255)
   expiresAt         DateTime
   revokedAt         DateTime?
-  createdAt         DateTime  @default(now())
-
-  deliveryPartner DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
 
   @@index([deliveryPartnerId])
   @@index([expiresAt])
@@ -54,8 +47,7 @@ model AdminRefreshToken {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
-
-  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin     Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
   @@index([expiresAt])

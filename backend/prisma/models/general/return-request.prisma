@@ -1,43 +1,38 @@
-// =============================================================================
-// ReturnRequest — return workflow with admin approval + separate addresses
-// =============================================================================
-
 model ReturnRequest {
-  id                      String       @id @default(cuid())
-  returnNumber            String       @unique @db.VarChar(30)
+  id                      String               @id @default(cuid())
+  returnNumber            String               @unique @db.VarChar(30)
   orderId                 String
-  orderItemId             String       @unique
+  orderItemId             String               @unique
   customerId              String
   sellerId                String
   productId               String
   pickupCustomerAddressId String?
   dropoffSellerAddressId  String?
-  status                  ReturnStatus @default(REQUESTED)
-  reason                  String       @db.Text
-  description             String?      @db.Text
-  refundAmount            Decimal      @db.Decimal(12, 2)
-  images                  String[]     @default([])
-  reviewedByAdminId       String?      @db.VarChar(30)
+  status                  ReturnStatus         @default(REQUESTED)
+  reason                  String
+  description             String?
+  refundAmount            Decimal              @db.Decimal(12, 2)
+  images                  String[]             @default([])
+  reviewedByAdminId       String?              @db.VarChar(30)
   reviewedAt              DateTime?
-  adminNotes              String?      @db.Text
-  rejectionReason         String?      @db.Text
+  adminNotes              String?
+  rejectionReason         String?
   pickupScheduledAt       DateTime?
   pickedUpAt              DateTime?
   receivedAt              DateTime?
   refundedAt              DateTime?
   completedAt             DateTime?
-  createdAt               DateTime     @default(now())
-  updatedAt               DateTime     @updatedAt
-
-  order                 Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  orderItem             OrderItem            @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
-  customer              Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  seller                Seller               @relation(fields: [sellerId], references: [id], onDelete: Restrict)
-  product               Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
-  pickupCustomerAddress CustomerAddress?     @relation("ReturnPickupAddress", fields: [pickupCustomerAddressId], references: [id], onDelete: SetNull)
-  dropoffSellerAddress  SellerAddress?       @relation("ReturnDropoffAddress", fields: [dropoffSellerAddressId], references: [id], onDelete: SetNull)
-  reviewedByAdmin       Admin?               @relation("ReturnReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
-  timelineEvents        OrderTimelineEvent[]
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  timelineEvents          OrderTimelineEvent[]
+  customer                Customer             @relation(fields: [customerId], references: [id])
+  dropoffSellerAddress    SellerAddress?       @relation("ReturnDropoffAddress", fields: [dropoffSellerAddressId], references: [id])
+  order                   Order                @relation(fields: [orderId], references: [id])
+  orderItem               OrderItem            @relation(fields: [orderItemId], references: [id])
+  pickupCustomerAddress   CustomerAddress?     @relation("ReturnPickupAddress", fields: [pickupCustomerAddressId], references: [id])
+  product                 Product              @relation(fields: [productId], references: [id])
+  reviewedByAdmin         Admin?               @relation("ReturnReviewedBy", fields: [reviewedByAdminId], references: [id])
+  seller                  Seller               @relation(fields: [sellerId], references: [id])
 
   @@index([orderId])
   @@index([customerId])

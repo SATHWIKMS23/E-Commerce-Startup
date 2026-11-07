@@ -1,33 +1,28 @@
-// =============================================================================
-// Delivery Partner — independent entity; cannot create products
-// =============================================================================
-
 model DeliveryPartner {
-  id               String                @id @default(cuid())
-  email            String                @unique @db.VarChar(320)
-  passwordHash     String                @db.VarChar(255)
-  firstName        String                @db.VarChar(100)
-  lastName         String                @db.VarChar(100)
-  phone            String                @unique @db.VarChar(20)
-  avatarUrl        String?               @db.VarChar(2048)
-  status           DeliveryPartnerStatus @default(ACTIVE)
-  vehicleType      String?               @db.VarChar(50)
-  vehicleNumber    String?               @db.VarChar(30)
-  licenseNumber    String?               @db.VarChar(50)
-  isAvailable      Boolean               @default(true)
-  currentLat       Decimal?              @db.Decimal(10, 8)
-  currentLng       Decimal?              @db.Decimal(11, 8)
+  id               String                        @id @default(cuid())
+  email            String                        @unique @db.VarChar(320)
+  passwordHash     String                        @db.VarChar(255)
+  firstName        String                        @db.VarChar(100)
+  lastName         String                        @db.VarChar(100)
+  phone            String                        @unique @db.VarChar(20)
+  avatarUrl        String?                       @db.VarChar(2048)
+  status           DeliveryPartnerStatus         @default(ACTIVE)
+  vehicleType      String?                       @db.VarChar(50)
+  vehicleNumber    String?                       @db.VarChar(30)
+  licenseNumber    String?                       @db.VarChar(50)
+  isAvailable      Boolean                       @default(true)
+  currentLat       Decimal?                      @db.Decimal(10, 8)
+  currentLng       Decimal?                      @db.Decimal(11, 8)
   lastLoginAt      DateTime?
-  createdByAdminId String?               @db.VarChar(30)
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-
-  deliveries     Delivery[]
-  deliveryProofs DeliveryProof[]
-  addresses      DeliveryPartnerAddress[]
-  createdByAdmin Admin?                        @relation("DeliveryPartnerCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
-  notifications  Notification[]
-  refreshTokens  DeliveryPartnerRefreshToken[]
+  createdByAdminId String?                       @db.VarChar(30)
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+  deliveries       Delivery[]
+  addresses        DeliveryPartnerAddress[]
+  refreshTokens    DeliveryPartnerRefreshToken[]
+  createdByAdmin   Admin?                        @relation("DeliveryPartnerCreatedBy", fields: [createdByAdminId], references: [id])
+  deliveryProofs   DeliveryProof[]
+  notifications    Notification[]
 
   @@index([email])
   @@index([phone])

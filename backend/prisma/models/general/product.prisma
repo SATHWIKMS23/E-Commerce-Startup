@@ -1,40 +1,31 @@
 model Product {
-  id String @id @default(cuid())
-
-  sellerId   String
-  categoryId String?
-
-  name String  @db.VarChar(300)
-  slug String? @db.VarChar(320)
-
-  description String? @db.Text
-
-  sku String? @db.VarChar(100)
-
-  price Decimal @db.Decimal(12, 2)
-
-  stockQuantity Int           @default(0)
-  imageUrl      String?       @db.VarChar(2048)
-  status        ProductStatus @default(ACTIVE)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
-
-  seller   Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-
-  images        ProductImage[]
-  variants      ProductVariant[]
-  attributes    ProductAttribute[]
+  id            String             @id @default(cuid())
+  sellerId      String
+  categoryId    String?
+  name          String             @db.VarChar(300)
+  slug          String?            @db.VarChar(320)
+  description   String?
+  sku           String?            @db.VarChar(100)
+  price         Decimal            @db.Decimal(12, 2)
+  status        ProductStatus      @default(ACTIVE)
+  stockQuantity Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  deletedAt     DateTime?
+  isDeleted     Boolean            @default(false)
+  imageUrl      String?            @db.VarChar(2048)
   cartItems     CartItem[]
-  wishlistItems WishlistItem[]
-  orderItems    OrderItem[]
-  reviews       Review[]
-  returnItems   ReturnRequest[]
-  reports       ProductReport[]
   inventoryLogs InventoryLog[]
+  orderItems    OrderItem[]
+  attributes    ProductAttribute[]
+  images        ProductImage[]
+  reports       ProductReport[]
+  variants      ProductVariant[]
+  category      Category?          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  seller        Seller             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  returnItems   ReturnRequest[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
 
   @@unique([sellerId, sku])
   @@unique([sellerId, slug])

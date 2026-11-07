@@ -1,24 +1,19 @@
-// =============================================================================
-// Category — hierarchical taxonomy for product browsing and search
-// =============================================================================
-
 model Category {
-  id          String   @id @default(cuid())
-  name        String   @db.VarChar(150)
-  slug        String   @unique @db.VarChar(170)
-  description String?  @db.Text
-  imageUrl    String?  @db.VarChar(2048)
-  imagePublicId String? @db.VarChar(255)
-  parentId    String?
-  level       Int      @default(0)
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children Category[] @relation("CategoryHierarchy")
-  products Product[]
+  id            String     @id @default(cuid())
+  name          String     @db.VarChar(150)
+  slug          String     @unique @db.VarChar(170)
+  description   String?
+  imageUrl      String?    @db.VarChar(2048)
+  parentId      String?
+  level         Int        @default(0)
+  sortOrder     Int        @default(0)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  imagePublicId String?    @db.VarChar(255)
+  parent        Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children      Category[] @relation("CategoryHierarchy")
+  products      Product[]
 
   @@index([parentId])
   @@index([slug])

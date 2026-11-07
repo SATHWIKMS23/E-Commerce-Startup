@@ -1,7 +1,3 @@
-// =============================================================================
-// Otp — OTP-based password recovery and verification (entity-agnostic)
-// =============================================================================
-
 model Otp {
   id          String        @id @default(cuid())
   entityType  OtpEntityType

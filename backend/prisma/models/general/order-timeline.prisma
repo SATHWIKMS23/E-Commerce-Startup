@@ -1,7 +1,3 @@
-// =============================================================================
-// OrderTimelineEvent — unified order tracking for customers, sellers, and admin
-// =============================================================================
-
 model OrderTimelineEvent {
   id              String             @id @default(cuid())
   entityType      TimelineEntityType
@@ -13,17 +9,16 @@ model OrderTimelineEvent {
   paymentId       String?
   status          String             @db.VarChar(50)
   title           String             @db.VarChar(300)
-  description     String?            @db.Text
+  description     String?
   metadata        Json?
   occurredAt      DateTime           @default(now())
   createdAt       DateTime           @default(now())
-
-  order         Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  sellerOrder   SellerOrder?   @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
-  delivery      Delivery?      @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
-  customOrder   CustomOrder?   @relation(fields: [customOrderId], references: [id], onDelete: Cascade)
-  returnRequest ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
-  payment       Payment?       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  customOrder     CustomOrder?       @relation(fields: [customOrderId], references: [id], onDelete: Cascade)
+  delivery        Delivery?          @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  order           Order?             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment         Payment?           @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  returnRequest   ReturnRequest?     @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  sellerOrder     SellerOrder?       @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
 
   @@index([entityType])
   @@index([orderId])

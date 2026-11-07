@@ -1,26 +1,21 @@
-// =============================================================================
-// SellerPayout — seller earnings settlement per seller order
-// =============================================================================
-
 model SellerPayout {
-  id              String       @id @default(cuid())
+  id              String             @id @default(cuid())
   sellerId        String
-  sellerOrderId   String       @unique
+  sellerOrderId   String             @unique
   bankAccountId   String?
-  amount          Decimal      @db.Decimal(12, 2)
-  platformFee     Decimal      @db.Decimal(12, 2)
-  currency        String       @default("INR") @db.VarChar(3)
-  status          PayoutStatus @default(PENDING)
-  gatewayPayoutId String?      @unique @db.VarChar(255)
+  amount          Decimal            @db.Decimal(12, 2)
+  platformFee     Decimal            @db.Decimal(12, 2)
+  currency        String             @default("INR") @db.VarChar(3)
+  status          PayoutStatus       @default(PENDING)
+  gatewayPayoutId String?            @unique @db.VarChar(255)
   processedAt     DateTime?
   failedAt        DateTime?
-  failureReason   String?      @db.Text
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  seller      Seller             @relation(fields: [sellerId], references: [id], onDelete: Restrict)
-  sellerOrder SellerOrder        @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
-  bankAccount SellerBankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  failureReason   String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  bankAccount     SellerBankAccount? @relation(fields: [bankAccountId], references: [id])
+  seller          Seller             @relation(fields: [sellerId], references: [id])
+  sellerOrder     SellerOrder        @relation(fields: [sellerOrderId], references: [id])
 
   @@index([sellerId])
   @@index([status])

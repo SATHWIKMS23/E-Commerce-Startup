@@ -1,7 +1,3 @@
-// =============================================================================
-// SellerDailyMetric — pre-aggregated sales analytics for seller dashboard
-// =============================================================================
-
 model SellerDailyMetric {
   id                String   @id @default(cuid())
   sellerId          String
@@ -15,8 +11,7 @@ model SellerDailyMetric {
   newCustomers      Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
-  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller            Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@unique([sellerId, date])
   @@index([sellerId])

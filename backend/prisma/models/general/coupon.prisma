@@ -1,11 +1,7 @@
-// =============================================================================
-// Coupon — platform/seller discounts applied at checkout
-// =============================================================================
-
 model Coupon {
   id               String             @id @default(cuid())
   code             String             @unique @db.VarChar(50)
-  description      String?            @db.Text
+  description      String?
   discountType     CouponDiscountType
   discountValue    Decimal            @db.Decimal(12, 2)
   minOrderAmount   Decimal?           @db.Decimal(12, 2)
@@ -20,10 +16,9 @@ model Coupon {
   createdByAdminId String?            @db.VarChar(30)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
-
-  orders         Order[]
-  usages         CouponUsage[]
-  createdByAdmin Admin?        @relation("CouponCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  usages           CouponUsage[]
+  createdByAdmin   Admin?             @relation("CouponCreatedBy", fields: [createdByAdminId], references: [id])
+  orders           Order[]
 
   @@index([code])
   @@index([isActive])
@@ -39,10 +34,9 @@ model CouponUsage {
   orderId         String   @unique
   discountApplied Decimal  @db.Decimal(12, 2)
   usedAt          DateTime @default(now())
-
-  coupon   Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  coupon          Coupon   @relation(fields: [couponId], references: [id])
+  customer        Customer @relation(fields: [customerId], references: [id])
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([couponId])
   @@index([customerId])

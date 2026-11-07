@@ -1,7 +1,3 @@
-// =============================================================================
-// Notification — polymorphic recipient across separate entity types
-// =============================================================================
-
 model Notification {
   id                String              @id @default(cuid())
   customerId        String?
@@ -12,20 +8,19 @@ model Notification {
   channel           NotificationChannel @default(IN_APP)
   status            NotificationStatus  @default(PENDING)
   title             String              @db.VarChar(300)
-  body              String              @db.Text
+  body              String
   data              Json?
   readAt            DateTime?
   sentAt            DateTime?
   failedAt          DateTime?
-  failureReason     String?             @db.Text
+  failureReason     String?
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-
-  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  seller          Seller?          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  deliveryPartner DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
-  admin           Admin?           @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin             Admin?              @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  customer          Customer?           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deliveryPartner   DeliveryPartner?    @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  seller            Seller?             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
   @@index([sellerId])

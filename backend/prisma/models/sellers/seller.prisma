@@ -1,61 +1,56 @@
-// =============================================================================
-// Seller — completely independent entity with shop, products, and verification
-// =============================================================================
-
 model Seller {
-  id                String       @id @default(cuid())
-  username          String       @unique
-  email             String       @unique @db.VarChar(320)
-  passwordHash      String?      @db.VarChar(255)
-  googleId          String?      @unique @db.VarChar(255)
-  authProvider      AuthProvider @default(EMAIL)
-  firstName         String       @db.VarChar(100)
-  lastName          String       @db.VarChar(100)
-  phone             String?      @db.VarChar(20)
-  avatarUrl         String?      @db.VarChar(2048)
-  status            SellerStatus @default(ACTIVE)
-  isBanned          Boolean      @default(false)
-  bannedAt          DateTime?
-  banReason         String?      @db.Text
-  approvedAt        DateTime?
-  rejectedAt        DateTime?
-  rejectionReason   String?      @db.Text
-  approvedByAdminId String?      @db.VarChar(30)
-  emailVerified     Boolean      @default(false)
-  lastLoginAt       DateTime?
-  strikeCount       Int          @default(0)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  isDeactivated     Boolean      @default(false)
-  deactivatedAt     DateTime?
-  scheduledDeleteAt DateTime?
-
-  shop              Shop?
-  addresses         SellerAddress[]
-  bankAccounts      SellerBankAccount[]
-  products          Product[]
-  sellerOrders      SellerOrder[]
-  verifications       SellerVerification[]
-  strikes             SellerStrike[]
-  suspensions         SellerSuspension[]
-  appeals             SellerAppeal[]
-  guidelineAgreements SellerGuidelineAgreement[]
-  policyReads         PolicyNoticeRead[]
+  id                   String                     @id @default(cuid())
+  email                String                     @unique @db.VarChar(320)
+  passwordHash         String?                    @db.VarChar(255)
+  googleId             String?                    @unique @db.VarChar(255)
+  authProvider         AuthProvider               @default(EMAIL)
+  firstName            String                     @db.VarChar(100)
+  lastName             String                     @db.VarChar(100)
+  phone                String?                    @db.VarChar(20)
+  avatarUrl            String?                    @db.VarChar(2048)
+  status               SellerStatus               @default(ACTIVE)
+  isBanned             Boolean                    @default(false)
+  bannedAt             DateTime?
+  banReason            String?
+  approvedAt           DateTime?
+  rejectedAt           DateTime?
+  rejectionReason      String?
+  approvedByAdminId    String?                    @db.VarChar(30)
+  emailVerified        Boolean                    @default(false)
+  lastLoginAt          DateTime?
+  strikeCount          Int                        @default(0)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  username             String                     @unique
+  deactivatedAt        DateTime?
+  isDeactivated        Boolean                    @default(false)
+  scheduledDeleteAt    DateTime?
   commissionStatements CommissionStatement[]
-  commissionPayments  SellerCommissionPayment[]
-  conversations       Conversation[]
-  customOrderQuotes   CustomOrderQuote[]
-  packingProofs     PackingProof[]
-  returnRequests    ReturnRequest[]
-  payouts           SellerPayout[]
-  dailyMetrics      SellerDailyMetric[]
-  inventoryLogs     InventoryLog[]
-  approvedByAdmin   Admin?               @relation("SellerApprovedBy", fields: [approvedByAdminId], references: [id], onDelete: SetNull)
-  notifications     Notification[]
-  refreshTokens     SellerRefreshToken[]
-  supportTickets    SupportTicket[]
-  shopApprovalRequests ShopApprovalRequest[]
+  conversations        Conversation[]
+  customOrderQuotes    CustomOrderQuote[]
+  inventoryLogs        InventoryLog[]
+  notifications        Notification[]
+  packingProofs        PackingProof[]
+  policyReads          PolicyNoticeRead[]
+  products             Product[]
+  returnRequests       ReturnRequest[]
+  addresses            SellerAddress[]
+  appeals              SellerAppeal[]
+  bankAccounts         SellerBankAccount[]
+  commissionPayments   SellerCommissionPayment[]
+  dailyMetrics         SellerDailyMetric[]
+  guidelineAgreements  SellerGuidelineAgreement[]
+  sellerOrders         SellerOrder[]
+  payouts              SellerPayout[]
+  refreshTokens        SellerRefreshToken[]
+  strikes              SellerStrike[]
+  suspensions          SellerSuspension[]
+  verifications        SellerVerification[]
+  approvedByAdmin      Admin?                     @relation("SellerApprovedBy", fields: [approvedByAdminId], references: [id])
   shopAgreements       ShopAgreement[]
+  shopApprovalRequests ShopApprovalRequest[]
+  shop                 Shop?
+  supportTickets       SupportTicket[]
 
   @@index([email])
   @@index([phone])
@@ -67,46 +62,45 @@ model Seller {
 }
 
 model Shop {
-  id                     String     @id @default(cuid())
-  sellerId               String     @unique
-  name                   String     @db.VarChar(200)
-  slug                   String     @unique @db.VarChar(220)
-  description            String?    @db.Text
-  logoUrl                String?    @db.VarChar(2048)
-  bannerUrl              String?    @db.VarChar(2048)
-  businessName           String?    @db.VarChar(200)
-  gstNumber              String?    @db.VarChar(15)
-  gstRegistered          Boolean    @default(true)
-  supportEmail           String?    @db.VarChar(320)
-  supportPhone           String?    @db.VarChar(20)
-  defaultPickupAddressId String?
-  status                 ShopStatus @default(PENDING)
-  rejectionReason        String?    @db.Text
-  reviewedByAdminId      String?    @db.VarChar(30)
-  reviewedAt             DateTime?
-  enablePackingFee       Boolean    @default(false)
-  packingFeeApproved     Boolean    @default(false)
-  packingFeeEnabled        Boolean                  @default(false)
-  packingFeeAmount         Decimal                  @default(0.00) @db.Decimal(10, 2)
-  packingFeeApprovalStatus PackingFeeApprovalStatus @default(NOT_APPROVED)
-  packingFeeRequestedAt    DateTime?
-  packingFeeApprovedAt     DateTime?
-  packingFeeRejectedReason String?                  @db.Text
-  packingFeeApprovedMaxAmount Decimal?              @db.Decimal(10, 2)
-  commissionPercentage   Float      @default(10.0)
-  commissionNotes        String?    @db.Text
-  customerDeliveryShare  Int        @default(75)
-  sellerDeliveryShare    Int        @default(25)
-  deliveryMode           DeliveryMode @default(PLATFORM)
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
-
-  seller               Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  defaultPickupAddress SellerAddress? @relation("ShopDefaultPickupAddress", fields: [defaultPickupAddressId], references: [id], onDelete: SetNull)
-  reviewedByAdmin      Admin?         @relation("ShopReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
-  packingFeeRequests   PackingFeeRequest[]
-  approvalRequests     ShopApprovalRequest[]
-  agreements           ShopAgreement[]
+  id                          String                   @id @default(cuid())
+  sellerId                    String                   @unique
+  name                        String                   @db.VarChar(200)
+  slug                        String                   @unique @db.VarChar(220)
+  description                 String?
+  logoUrl                     String?                  @db.VarChar(2048)
+  bannerUrl                   String?                  @db.VarChar(2048)
+  businessName                String?                  @db.VarChar(200)
+  supportEmail                String?                  @db.VarChar(320)
+  supportPhone                String?                  @db.VarChar(20)
+  defaultPickupAddressId      String?
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
+  gstNumber                   String?                  @db.VarChar(15)
+  commissionPercentage        Float                    @default(10.0)
+  customerDeliveryShare       Int                      @default(75)
+  enablePackingFee            Boolean                  @default(false)
+  gstRegistered               Boolean                  @default(true)
+  packingFeeApproved          Boolean                  @default(false)
+  sellerDeliveryShare         Int                      @default(25)
+  status                      ShopStatus               @default(PENDING)
+  rejectionReason             String?
+  reviewedByAdminId           String?                  @db.VarChar(30)
+  reviewedAt                  DateTime?
+  commissionNotes             String?
+  deliveryMode                DeliveryMode             @default(PLATFORM)
+  packingFeeAmount            Decimal                  @default(0.00) @db.Decimal(10, 2)
+  packingFeeApprovalStatus    PackingFeeApprovalStatus @default(NOT_APPROVED)
+  packingFeeApprovedAt        DateTime?
+  packingFeeEnabled           Boolean                  @default(false)
+  packingFeeRejectedReason    String?
+  packingFeeRequestedAt       DateTime?
+  packingFeeApprovedMaxAmount Decimal?                 @db.Decimal(10, 2)
+  packingFeeRequests          PackingFeeRequest[]
+  agreements                  ShopAgreement[]
+  approvalRequests            ShopApprovalRequest[]
+  defaultPickupAddress        SellerAddress?           @relation("ShopDefaultPickupAddress", fields: [defaultPickupAddressId], references: [id])
+  reviewedByAdmin             Admin?                   @relation("ShopReviewedBy", fields: [reviewedByAdminId], references: [id])
+  seller                      Seller                   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([slug])
   @@index([status])
@@ -118,18 +112,17 @@ model ProductReport {
   id                String              @id @default(cuid())
   productId         String
   customerId        String
-  reason            String              @db.Text
-  description       String?             @db.Text
+  reason            String
+  description       String?
   status            ProductReportStatus @default(PENDING)
   reviewedByAdminId String?             @db.VarChar(30)
   reviewedAt        DateTime?
-  resolution        String?             @db.Text
+  resolution        String?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  reviewedByAdmin Admin?   @relation("ProductReportReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  customer          Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product           Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reviewedByAdmin   Admin?              @relation("ProductReportReviewedBy", fields: [reviewedByAdminId], references: [id])
 
   @@index([productId])
   @@index([customerId])

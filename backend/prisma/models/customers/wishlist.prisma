@@ -1,15 +1,10 @@
-// =============================================================================
-// Wishlist — one wishlist per customer (1:1)
-// =============================================================================
-
 model Wishlist {
-  id         String   @id @default(cuid())
-  customerId String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  customer Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  items    WishlistItem[]
+  id         String         @id @default(cuid())
+  customerId String         @unique
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  items      WishlistItem[]
+  customer   Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@map("wishlists")
 }

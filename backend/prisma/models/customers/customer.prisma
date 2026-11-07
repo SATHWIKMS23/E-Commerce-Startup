@@ -1,46 +1,41 @@
-// =============================================================================
-// Customer — completely independent entity (NOT shared with Seller/Admin/DP)
-// =============================================================================
-
 model Customer {
-  id                String       @id @default(uuid())
-  email             String       @unique @db.VarChar(320)
-  username          String       @unique
-  passwordHash      String?      @db.VarChar(255)
-  googleId          String?      @unique @db.VarChar(255)
-  authProvider      AuthProvider @default(EMAIL)
-  firstName         String?      @db.VarChar(100)
-  lastName          String?      @db.VarChar(100)
-  phone             String?      @db.VarChar(20)
-  avatarUrl         String?      @db.VarChar(2048)
-  isBanned          Boolean      @default(false)
-  bannedAt          DateTime?
-  banReason         String?      @db.Text
-  isDeactivated     Boolean      @default(false)
-  deactivatedAt     DateTime?
-  scheduledDeleteAt DateTime?
-  emailVerified     Boolean      @default(false)
-  phoneVerified     Boolean      @default(false)
-  lastLoginAt       DateTime?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
-  addresses      CustomerAddress[]
-  cart           Cart?
-  wishlist       Wishlist?
-  orders         Order[]
-  payments       Payment[]
-  reviews        Review[]
-  returnRequests ReturnRequest[]
-  notifications  Notification[]
-  customOrders   CustomOrder[]
-  productReports ProductReport[]
-  caseReports    CustomerCaseReport[]
-  conversations  Conversation[]
-  supportTickets SupportTicket[]
-  couponUsages   CouponUsage[]
-  refreshTokens  CustomerRefreshToken[]
+  id                    String                             @id @default(uuid())
+  email                 String                             @unique @db.VarChar(320)
+  username              String                             @unique
+  passwordHash          String?                            @db.VarChar(255)
+  googleId              String?                            @unique @db.VarChar(255)
+  authProvider          AuthProvider                       @default(EMAIL)
+  firstName             String?                            @db.VarChar(100)
+  lastName              String?                            @db.VarChar(100)
+  phone                 String?                            @db.VarChar(20)
+  avatarUrl             String?                            @db.VarChar(2048)
+  isBanned              Boolean                            @default(false)
+  bannedAt              DateTime?
+  banReason             String?
+  emailVerified         Boolean                            @default(false)
+  phoneVerified         Boolean                            @default(false)
+  lastLoginAt           DateTime?
+  createdAt             DateTime                           @default(now())
+  updatedAt             DateTime                           @updatedAt
+  deactivatedAt         DateTime?
+  isDeactivated         Boolean                            @default(false)
+  scheduledDeleteAt     DateTime?
+  cart                  Cart?
+  conversations         Conversation[]
+  couponUsages          CouponUsage[]
+  customOrders          CustomOrder[]
+  addresses             CustomerAddress[]
+  caseReports           CustomerCaseReport[]
+  refreshTokens         CustomerRefreshToken[]
   locationSubscriptions LocationNotificationSubscription[]
+  notifications         Notification[]
+  orders                Order[]
+  payments              Payment[]
+  productReports        ProductReport[]
+  returnRequests        ReturnRequest[]
+  reviews               Review[]
+  supportTickets        SupportTicket[]
+  wishlist              Wishlist?
 
   @@index([email])
   @@index([phone])

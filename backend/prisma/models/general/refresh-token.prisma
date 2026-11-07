@@ -1,8 +1,7 @@
-// Refresh tokens for access token rotation and revocation
 model RefreshToken {
   id        String   @id @default(cuid())
   userId    String
-  userType  String // CUSTOMER | SELLER | ADMIN | DELIVERY_PARTNER
+  userType  String
   tokenHash String   @db.VarChar(128)
   revoked   Boolean  @default(false)
   createdAt DateTime @default(now())

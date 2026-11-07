@@ -1,57 +1,42 @@
-// =============================================================================
-// MarketplaceBranding — independent Admin-owned branding for each marketplace
-// application. Never contains per-shop branding.
-// =============================================================================
-
 model MarketplaceBranding {
-  id        Int         @id @default(autoincrement())
-  app       BrandingApp @unique @default(CUSTOMER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  brandName     String  @default("Marketplace") @db.VarChar(150)
-  shortName     String? @db.VarChar(80)
-  tagline       String? @db.VarChar(300)
-  logoUrl       String  @default("/images/logo.png") @db.VarChar(2048)
-  logoPublicId  String? @db.VarChar(255)
-  faviconUrl    String? @db.VarChar(2048)
-  faviconPublicId String? @db.VarChar(255)
-  browserTitle  String? @db.VarChar(200)
-
-  seoTitle       String? @db.VarChar(200)
-  seoDescription String? @db.VarChar(500)
-
-  primaryColor   String? @db.VarChar(30)
-  secondaryColor String? @db.VarChar(30)
-  supportEmail   String? @db.VarChar(320)
-  supportPhone   String? @db.VarChar(50)
-
-  // Customer-facing marketing copy (kept from the previous branding store)
-  heroBadge               String? @db.VarChar(200)
-  heroHeadingLine1        String? @db.VarChar(200)
-  heroHeadingLine2        String? @db.VarChar(200)
-  heroHeadingLine3        String? @db.VarChar(200)
-  heroDescription         String? @db.Text
-  searchPlaceholder       String? @db.VarChar(200)
-  exploreShopsButtonText  String? @db.VarChar(100)
-  browseProductsButtonText String? @db.VarChar(100)
-  footerDescription       String? @db.Text
-
-  // Mode-specific logos and brand descriptions
-  darkLogoUrl           String? @db.VarChar(2048)
-  darkLogoPublicId      String? @db.VarChar(255)
-  lightLogoUrl          String? @db.VarChar(2048)
-  lightLogoPublicId     String? @db.VarChar(255)
-  brandDescription      String? @db.Text
-
-  // Application-specific presentation titles
-  customerTitle         String? @db.VarChar(200)
-  sellerPortalTitle     String? @db.VarChar(200)
-  sellerPortalTagline   String? @db.VarChar(300)
-  sellerPortalLogoUrl   String? @db.VarChar(2048)
-  sellerPortalLogoPublicId String? @db.VarChar(255)
-
-  updatedBy String? @db.VarChar(30)
+  id                       Int         @id @default(autoincrement())
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  brandName                String      @default("Marketplace") @db.VarChar(150)
+  shortName                String?     @db.VarChar(80)
+  tagline                  String?     @db.VarChar(300)
+  logoUrl                  String      @default("/images/logo.png") @db.VarChar(2048)
+  faviconUrl               String?     @db.VarChar(2048)
+  browserTitle             String?     @db.VarChar(200)
+  seoTitle                 String?     @db.VarChar(200)
+  seoDescription           String?     @db.VarChar(500)
+  primaryColor             String?     @db.VarChar(30)
+  secondaryColor           String?     @db.VarChar(30)
+  supportEmail             String?     @db.VarChar(320)
+  supportPhone             String?     @db.VarChar(50)
+  heroBadge                String?     @db.VarChar(200)
+  heroHeadingLine1         String?     @db.VarChar(200)
+  heroHeadingLine2         String?     @db.VarChar(200)
+  heroHeadingLine3         String?     @db.VarChar(200)
+  heroDescription          String?
+  searchPlaceholder        String?     @db.VarChar(200)
+  exploreShopsButtonText   String?     @db.VarChar(100)
+  browseProductsButtonText String?     @db.VarChar(100)
+  footerDescription        String?
+  updatedBy                String?     @db.VarChar(30)
+  logoPublicId             String?     @db.VarChar(255)
+  faviconPublicId          String?     @db.VarChar(255)
+  app                      BrandingApp @unique @default(CUSTOMER)
+  darkLogoUrl              String?     @db.VarChar(2048)
+  darkLogoPublicId         String?     @db.VarChar(255)
+  lightLogoUrl             String?     @db.VarChar(2048)
+  lightLogoPublicId        String?     @db.VarChar(255)
+  brandDescription         String?
+  customerTitle            String?     @db.VarChar(200)
+  sellerPortalTitle        String?     @db.VarChar(200)
+  sellerPortalTagline      String?     @db.VarChar(300)
+  sellerPortalLogoUrl      String?     @db.VarChar(2048)
+  sellerPortalLogoPublicId String?     @db.VarChar(255)
 
   @@map("marketplace_branding")
 }

@@ -1,20 +1,15 @@
-// =============================================================================
-// PackingProof — seller packing photos required before shipping
-// =============================================================================
-
 model PackingProof {
-  id            String    @id @default(cuid())
-  sellerOrderId String    @unique
+  id            String      @id @default(cuid())
+  sellerOrderId String      @unique
   sellerId      String
   imageUrls     String[]
-  notes         String?   @db.Text
-  packedAt      DateTime  @default(now())
+  notes         String?
+  packedAt      DateTime    @default(now())
   verifiedAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  sellerOrder SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
-  seller      Seller      @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  seller        Seller      @relation(fields: [sellerId], references: [id])
+  sellerOrder   SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
 
   @@index([sellerId])
   @@index([packedAt])

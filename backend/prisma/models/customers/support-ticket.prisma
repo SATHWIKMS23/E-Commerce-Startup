@@ -1,28 +1,23 @@
-// =============================================================================
-// SupportTicket — customer support requests (isolated per customer)
-// =============================================================================
-
 model SupportTicket {
-  id                String                @id @default(cuid())
-  ticketNumber      String?               @unique @db.VarChar(30)
+  id                String                 @id @default(cuid())
+  ticketNumber      String?                @unique @db.VarChar(30)
   customerId        String?
-  sellerId          String?
   orderId           String?
-  subject           String                @db.VarChar(300)
-  description       String                @db.Text
-  status            SupportTicketStatus   @default(OPEN)
-  priority          SupportTicketPriority @default(MEDIUM)
-  assignedToAdminId String?               @db.VarChar(30)
+  subject           String                 @db.VarChar(300)
+  description       String
+  status            SupportTicketStatus    @default(OPEN)
+  priority          SupportTicketPriority  @default(MEDIUM)
+  assignedToAdminId String?                @db.VarChar(30)
   resolvedAt        DateTime?
   closedAt          DateTime?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-
-  customer        Customer?              @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  seller          Seller?                @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  order           Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  assignedToAdmin Admin?                 @relation("SupportTicketAssignedTo", fields: [assignedToAdminId], references: [id], onDelete: SetNull)
-  messages        SupportTicketMessage[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  sellerId          String?
+  messages          SupportTicketMessage[]
+  assignedToAdmin   Admin?                 @relation("SupportTicketAssignedTo", fields: [assignedToAdminId], references: [id])
+  customer          Customer?              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order             Order?                 @relation(fields: [orderId], references: [id])
+  seller            Seller?                @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
   @@index([sellerId])
@@ -36,15 +31,14 @@ model SupportTicket {
 }
 
 model SupportTicketMessage {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   ticketId    String
-  senderType  String   @db.VarChar(20)
-  senderId    String   @db.VarChar(30)
-  message     String   @db.Text
-  attachments String[] @default([])
-  createdAt   DateTime @default(now())
-
-  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderType  String        @db.VarChar(20)
+  senderId    String        @db.VarChar(30)
+  message     String
+  attachments String[]      @default([])
+  createdAt   DateTime      @default(now())
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@index([createdAt])

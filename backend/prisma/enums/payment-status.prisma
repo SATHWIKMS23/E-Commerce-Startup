@@ -1,7 +1,5 @@
 enum PaymentStatus {
   PENDING
-  PENDING_COD
-  PAID
   PROCESSING
   AUTHORIZED
   CAPTURED
@@ -12,4 +10,6 @@ enum PaymentStatus {
   REFUNDED
   PARTIALLY_REFUNDED
   DISPUTED
+  PENDING_COD
+  PAID
 }

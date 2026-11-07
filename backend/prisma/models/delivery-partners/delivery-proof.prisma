@@ -1,21 +1,16 @@
-// =============================================================================
-// DeliveryProof — pickup and delivery photo proof (required for completion)
-// =============================================================================
-
 model DeliveryProof {
   id                String            @id @default(cuid())
   deliveryId        String
   deliveryPartnerId String
   proofType         DeliveryProofType
   imageUrl          String            @db.VarChar(2048)
-  notes             String?           @db.Text
+  notes             String?
   latitude          Decimal?          @db.Decimal(10, 8)
   longitude         Decimal?          @db.Decimal(11, 8)
   capturedAt        DateTime          @default(now())
   createdAt         DateTime          @default(now())
-
-  delivery        Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
-  deliveryPartner DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Restrict)
+  delivery          Delivery          @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  deliveryPartner   DeliveryPartner   @relation(fields: [deliveryPartnerId], references: [id])
 
   @@index([deliveryId])
   @@index([deliveryPartnerId])

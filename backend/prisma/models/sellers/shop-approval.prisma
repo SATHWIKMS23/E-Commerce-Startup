@@ -1,6 +1,73 @@
-// =============================================================================
-// Shop Approval Requests & Shop-Specific Seller Agreements
-// =============================================================================
+model ShopApprovalRequest {
+  id                String                    @id @default(cuid())
+  shopId            String
+  sellerId          String
+  status            ShopApprovalRequestStatus @default(PENDING_REVIEW)
+  notes             String?
+  rejectionReason   String?
+  submittedAt       DateTime                  @default(now())
+  reviewedAt        DateTime?
+  reviewedByAdminId String?                   @db.VarChar(30)
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  agreements        ShopAgreement[]
+  reviewedByAdmin   Admin?                    @relation("ShopApprovalReviewedBy", fields: [reviewedByAdminId], references: [id])
+  seller            Seller                    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  shop              Shop                      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([submittedAt])
+  @@map("shop_approval_requests")
+}
+
+model ShopAgreement {
+  id                    String              @id @default(cuid())
+  shopId                String
+  sellerId              String
+  approvalRequestId     String
+  version               Int                 @default(1)
+  title                 String              @db.VarChar(255)
+  templateId            String?             @db.VarChar(100)
+  templateVersion       String?             @db.VarChar(50)
+  content               String
+  documentHash          String?             @db.VarChar(128)
+  commissionPercentage  Float               @default(10.0)
+  commissionNotes       String?
+  customerDeliveryShare Int                 @default(75)
+  sellerDeliveryShare   Int                 @default(25)
+  deliveryObligations   String?
+  sellerObligations     String?
+  customTerms           Json?
+  status                ShopAgreementStatus @default(ISSUED)
+  issuedByAdminId       String?             @db.VarChar(30)
+  issuedAt              DateTime            @default(now())
+  effectiveDate         DateTime            @default(now())
+  acceptedAt            DateTime?
+  acceptedLegalName     String?             @db.VarChar(200)
+  acceptanceMethod      String?             @default("ELECTRONIC_SIGNATURE") @db.VarChar(100)
+  ipAddress             String?             @db.VarChar(45)
+  userAgent             String?             @db.VarChar(512)
+  signatureImageUrl     String?             @db.VarChar(2048)
+  declinedAt            DateTime?
+  declinedReason        String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  approvalRequest       ShopApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  issuedByAdmin         Admin?              @relation("ShopAgreementIssuedBy", fields: [issuedByAdminId], references: [id])
+  seller                Seller              @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  shop                  Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([sellerId])
+  @@index([approvalRequestId])
+  @@index([status])
+  @@index([issuedAt])
+  @@map("shop_agreements")
+}
 
 enum ShopApprovalRequestStatus {
   PENDING_REVIEW
@@ -19,83 +86,4 @@ enum ShopAgreementStatus {
   DECLINED
   SUPERSEDED
   EXPIRED
-}
-
-model ShopApprovalRequest {
-  id                String                    @id @default(cuid())
-  shopId            String
-  sellerId          String
-  status            ShopApprovalRequestStatus @default(PENDING_REVIEW)
-  notes             String?                   @db.Text
-  rejectionReason   String?                   @db.Text
-  submittedAt       DateTime                  @default(now())
-  reviewedAt        DateTime?
-  reviewedByAdminId String?                   @db.VarChar(30)
-  approvedAt        DateTime?
-  rejectedAt        DateTime?
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
-
-  shop            Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  seller          Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  reviewedByAdmin Admin?          @relation("ShopApprovalReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
-  agreements      ShopAgreement[]
-
-  @@index([shopId])
-  @@index([sellerId])
-  @@index([status])
-  @@index([submittedAt])
-  @@map("shop_approval_requests")
-}
-
-model ShopAgreement {
-  id                    String              @id @default(cuid())
-  shopId                String
-  sellerId              String
-  approvalRequestId     String
-  version               Int                 @default(1)
-  title                 String              @db.VarChar(255)
-  templateId            String?             @db.VarChar(100)
-  templateVersion       String?             @db.VarChar(50)
-  content               String              @db.Text
-  documentHash          String?             @db.VarChar(128)
-  
-  commissionPercentage  Float               @default(10.0)
-  commissionNotes       String?             @db.Text
-  customerDeliveryShare Int                 @default(75)
-  sellerDeliveryShare   Int                 @default(25)
-  deliveryObligations   String?             @db.Text
-  sellerObligations     String?             @db.Text
-  customTerms           Json?
-  
-  status                ShopAgreementStatus @default(ISSUED)
-  
-  issuedByAdminId       String?             @db.VarChar(30)
-  issuedAt              DateTime            @default(now())
-  effectiveDate         DateTime            @default(now())
-  
-  acceptedAt            DateTime?
-  acceptedLegalName     String?             @db.VarChar(200)
-  acceptanceMethod      String?             @default("ELECTRONIC_SIGNATURE") @db.VarChar(100)
-  ipAddress             String?             @db.VarChar(45)
-  userAgent             String?             @db.VarChar(512)
-  signatureImageUrl     String?             @db.VarChar(2048)
-  
-  declinedAt            DateTime?
-  declinedReason        String?             @db.Text
-  
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-
-  shop            Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  seller          Seller              @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  approvalRequest ShopApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
-  issuedByAdmin   Admin?              @relation("ShopAgreementIssuedBy", fields: [issuedByAdminId], references: [id], onDelete: SetNull)
-
-  @@index([shopId])
-  @@index([sellerId])
-  @@index([approvalRequestId])
-  @@index([status])
-  @@index([issuedAt])
-  @@map("shop_agreements")
 }

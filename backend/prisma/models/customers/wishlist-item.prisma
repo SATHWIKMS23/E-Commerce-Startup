@@ -1,17 +1,12 @@
-// =============================================================================
-// WishlistItem — saved products (optional variant)
-// =============================================================================
-
 model WishlistItem {
-  id               String   @id @default(cuid())
+  id               String          @id @default(cuid())
   wishlistId       String
   productId        String
   productVariantId String?
-  createdAt        DateTime @default(now())
-
-  wishlist       Wishlist        @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  createdAt        DateTime        @default(now())
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  wishlist         Wishlist        @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
 
   @@unique([wishlistId, productId, productVariantId])
   @@index([wishlistId])

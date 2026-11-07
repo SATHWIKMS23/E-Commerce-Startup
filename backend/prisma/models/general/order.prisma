@@ -1,46 +1,41 @@
-// =============================================================================
-// Order — customer-level checkout; spans multiple sellers via SellerOrder
-// =============================================================================
-
 model Order {
-  id                 String      @id @default(cuid())
-  orderNumber        String      @unique @db.VarChar(30)
-  customerId         String
-  shippingAddressId  String
-  billingAddressId   String?
-  couponId           String?
-  status             OrderStatus @default(PENDING)
-  subtotal           Decimal     @db.Decimal(12, 2)
-  shippingTotal      Decimal     @default(0) @db.Decimal(12, 2)
-  taxTotal           Decimal     @default(0) @db.Decimal(12, 2)
-  discountTotal      Decimal     @default(0) @db.Decimal(12, 2)
-  packingFeeTotal    Decimal     @default(0) @db.Decimal(12, 2)
-  platformFeeTotal   Decimal?    @db.Decimal(12, 2)
-  grandTotal         Decimal     @db.Decimal(12, 2)
-  currency           String      @default("INR") @db.VarChar(3)
-  paymentMethod      String?     @db.VarChar(50)
-  selectedDeliveryMethod String? @db.VarChar(50)
-  notes              String?     @db.Text
-  placedAt           DateTime?
-  completedAt        DateTime?
-  cancelledAt        DateTime?
-  cancellationReason String?     @db.Text
-  codCollected       Boolean     @default(false)
-  codCollectedAt     DateTime?
-  codCollectedBy     String?     @db.VarChar(50)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-
-  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  shippingAddress CustomerAddress      @relation("CustomerShippingAddress", fields: [shippingAddressId], references: [id], onDelete: Restrict)
-  billingAddress  CustomerAddress?     @relation("CustomerBillingAddress", fields: [billingAddressId], references: [id], onDelete: SetNull)
-  coupon          Coupon?              @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  sellerOrders    SellerOrder[]
-  payments        Payment[]
-  returnRequests  ReturnRequest[]
-  couponUsage     CouponUsage?
-  supportTickets  SupportTicket[]
-  timelineEvents  OrderTimelineEvent[]
+  id                     String               @id @default(cuid())
+  orderNumber            String               @unique @db.VarChar(30)
+  customerId             String
+  shippingAddressId      String
+  billingAddressId       String?
+  couponId               String?
+  status                 OrderStatus          @default(PENDING)
+  subtotal               Decimal              @db.Decimal(12, 2)
+  shippingTotal          Decimal              @default(0) @db.Decimal(12, 2)
+  taxTotal               Decimal              @default(0) @db.Decimal(12, 2)
+  discountTotal          Decimal              @default(0) @db.Decimal(12, 2)
+  grandTotal             Decimal              @db.Decimal(12, 2)
+  currency               String               @default("INR") @db.VarChar(3)
+  notes                  String?
+  placedAt               DateTime?
+  completedAt            DateTime?
+  cancelledAt            DateTime?
+  cancellationReason     String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  packingFeeTotal        Decimal              @default(0) @db.Decimal(12, 2)
+  platformFeeTotal       Decimal?             @db.Decimal(12, 2)
+  paymentMethod          String?              @db.VarChar(50)
+  selectedDeliveryMethod String?              @db.VarChar(50)
+  codCollected           Boolean              @default(false)
+  codCollectedAt         DateTime?
+  codCollectedBy         String?              @db.VarChar(50)
+  couponUsage            CouponUsage?
+  timelineEvents         OrderTimelineEvent[]
+  billingAddress         CustomerAddress?     @relation("CustomerBillingAddress", fields: [billingAddressId], references: [id])
+  coupon                 Coupon?              @relation(fields: [couponId], references: [id])
+  customer               Customer             @relation(fields: [customerId], references: [id])
+  shippingAddress        CustomerAddress      @relation("CustomerShippingAddress", fields: [shippingAddressId], references: [id])
+  payments               Payment[]
+  returnRequests         ReturnRequest[]
+  sellerOrders           SellerOrder[]
+  supportTickets         SupportTicket[]
 
   @@index([customerId])
   @@index([orderNumber])
@@ -53,43 +48,41 @@ model Order {
   @@map("orders")
 }
 
-// Per-seller fulfillment unit within a multi-vendor order
 model SellerOrder {
-  id                    String            @id @default(cuid())
-  orderId               String
-  sellerId              String
-  pickupSellerAddressId String
-  status                SellerOrderStatus @default(PENDING)
-  subtotal              Decimal           @db.Decimal(12, 2)
-  shippingAmount        Decimal           @default(0) @db.Decimal(12, 2)
-  taxAmount             Decimal           @default(0) @db.Decimal(12, 2)
-  packingFee            Decimal           @default(0) @db.Decimal(12, 2)
-  platformFee           Decimal?          @db.Decimal(12, 2)
-  platformCommission    Decimal           @default(0) @db.Decimal(12, 2)
-  sellerEarnings        Decimal           @default(0) @db.Decimal(12, 2)
-  readyByAt             DateTime?
-  acceptedAt            DateTime?
-  rejectedAt            DateTime?
-  rejectionReason       String?           @db.Text
-  packedAt              DateTime?
-  shippedAt             DateTime?
-  deliveredAt           DateTime?
-  deliveryMode          DeliveryMode      @default(PLATFORM)
-  paymentMethod         String?           @db.VarChar(50)
-  selectedDeliveryMethod String?          @db.VarChar(50)
-  deliveryAssignedAt    DateTime?
-  deliveryAssignedBy    String?           @db.VarChar(50)
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-
-  order               Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  seller              Seller               @relation(fields: [sellerId], references: [id], onDelete: Restrict)
-  pickupSellerAddress SellerAddress        @relation("SellerOrderPickupAddress", fields: [pickupSellerAddressId], references: [id], onDelete: Restrict)
-  items               OrderItem[]
-  packingProof        PackingProof?
-  delivery            Delivery?
-  payout              SellerPayout?
-  timelineEvents      OrderTimelineEvent[]
+  id                     String               @id @default(cuid())
+  orderId                String
+  sellerId               String
+  pickupSellerAddressId  String
+  status                 SellerOrderStatus    @default(PENDING)
+  subtotal               Decimal              @db.Decimal(12, 2)
+  shippingAmount         Decimal              @default(0) @db.Decimal(12, 2)
+  taxAmount              Decimal              @default(0) @db.Decimal(12, 2)
+  platformCommission     Decimal              @default(0) @db.Decimal(12, 2)
+  sellerEarnings         Decimal              @default(0) @db.Decimal(12, 2)
+  readyByAt              DateTime?
+  acceptedAt             DateTime?
+  rejectedAt             DateTime?
+  rejectionReason        String?
+  packedAt               DateTime?
+  shippedAt              DateTime?
+  deliveredAt            DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  packingFee             Decimal              @default(0) @db.Decimal(12, 2)
+  platformFee            Decimal?             @db.Decimal(12, 2)
+  deliveryMode           DeliveryMode         @default(PLATFORM)
+  paymentMethod          String?              @db.VarChar(50)
+  selectedDeliveryMethod String?              @db.VarChar(50)
+  deliveryAssignedAt     DateTime?
+  deliveryAssignedBy     String?              @db.VarChar(50)
+  delivery               Delivery?
+  items                  OrderItem[]
+  timelineEvents         OrderTimelineEvent[]
+  packingProof           PackingProof?
+  order                  Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pickupSellerAddress    SellerAddress        @relation("SellerOrderPickupAddress", fields: [pickupSellerAddressId], references: [id])
+  seller                 Seller               @relation(fields: [sellerId], references: [id])
+  payout                 SellerPayout?
 
   @@unique([orderId, sellerId])
   @@index([orderId])

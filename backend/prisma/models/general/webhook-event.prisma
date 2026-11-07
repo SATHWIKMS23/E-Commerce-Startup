@@ -1,4 +1,3 @@
-// Webhook event idempotency and audit log
 model WebhookEvent {
   id              String    @id @default(cuid())
   provider        String

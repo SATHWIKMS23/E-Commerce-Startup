@@ -1,7 +1,3 @@
-// =============================================================================
-// Customer Case Reports & Incident Postmortems
-// =============================================================================
-
 model CustomerCaseReport {
   id              String                @id @default(cuid())
   reportNumber    String                @unique @db.VarChar(50)
@@ -9,21 +5,20 @@ model CustomerCaseReport {
   targetType      ReportTargetType      @default(SELLER)
   targetId        String                @db.VarChar(50)
   category        String                @db.VarChar(100)
-  reason          String                @db.Text
-  description     String                @db.Text
+  reason          String
+  description     String
   attachments     String[]              @default([])
   status          CaseReportStatus      @default(PENDING)
   priority        SupportTicketPriority @default(MEDIUM)
   assignedAdminId String?               @db.VarChar(40)
-  resolution      String?               @db.Text
-  internalNotes   String?               @db.Text
+  resolution      String?
+  internalNotes   String?
   receivedAt      DateTime              @default(now())
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
-
-  customer      Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  assignedAdmin Admin?                @relation("CaseReportAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
-  timeline      ReportTimelineEvent[]
+  assignedAdmin   Admin?                @relation("CaseReportAssignedAdmin", fields: [assignedAdminId], references: [id])
+  customer        Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  timeline        ReportTimelineEvent[]
 
   @@index([customerId])
   @@index([targetType, targetId])
@@ -35,16 +30,15 @@ model CustomerCaseReport {
 }
 
 model ReportTimelineEvent {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
   reportId  String
-  actorType String   @db.VarChar(20) // "CUSTOMER", "SELLER", "ADMIN", "SYSTEM"
-  actorId   String   @db.VarChar(40)
-  eventType String   @db.VarChar(50)
-  note      String?  @db.Text
+  actorType String             @db.VarChar(20)
+  actorId   String             @db.VarChar(40)
+  eventType String             @db.VarChar(50)
+  note      String?
   metadata  Json?
-  createdAt DateTime @default(now())
-
-  report CustomerCaseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now())
+  report    CustomerCaseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@index([reportId])
   @@index([createdAt])
@@ -55,29 +49,28 @@ model PostmortemReport {
   id                  String           @id @default(cuid())
   reference           String           @unique @db.VarChar(50)
   title               String           @db.VarChar(255)
-  summary             String           @db.Text
-  severity            String           @default("SEV2") @db.VarChar(20) // "SEV1", "SEV2", "SEV3"
-  relatedType         String?          @db.VarChar(50) // "REPORT", "ORDER", "SELLER", "SYSTEM"
+  summary             String
+  severity            String           @default("SEV2") @db.VarChar(20)
+  relatedType         String?          @db.VarChar(50)
   relatedId           String?          @db.VarChar(50)
   startTime           DateTime
   detectionTime       DateTime
   resolutionTime      DateTime?
-  impact              String           @db.Text
+  impact              String
   timeline            Json
-  rootCause           String           @db.Text
-  contributingFactors String           @db.Text
-  resolution          String           @db.Text
-  correctiveActions   Json             // Array of { id, action, owner, deadline, status }
-  preventiveActions   String           @db.Text
+  rootCause           String
+  contributingFactors String
+  resolution          String
+  correctiveActions   Json
+  preventiveActions   String
   responsibleOwner    String           @db.VarChar(120)
   reviewStatus        PostmortemStatus @default(DRAFT)
   approvedByAdminId   String?          @db.VarChar(40)
   createdByAdminId    String?          @db.VarChar(40)
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
-
-  createdByAdmin  Admin? @relation("PostmortemCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
-  approvedByAdmin Admin? @relation("PostmortemApprovedBy", fields: [approvedByAdminId], references: [id], onDelete: SetNull)
+  approvedByAdmin     Admin?           @relation("PostmortemApprovedBy", fields: [approvedByAdminId], references: [id])
+  createdByAdmin      Admin?           @relation("PostmortemCreatedBy", fields: [createdByAdminId], references: [id])
 
   @@index([reviewStatus])
   @@index([severity])

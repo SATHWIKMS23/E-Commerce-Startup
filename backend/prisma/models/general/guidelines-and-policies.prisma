@@ -1,26 +1,21 @@
-// =============================================================================
-// Community Guidelines & Marketplace Policy Notices
-// =============================================================================
-
 model CommunityGuideline {
-  id                 String          @id @default(cuid())
-  version            String          @unique @db.VarChar(50)
-  title              String          @db.VarChar(255)
-  status             GuidelineStatus @default(DRAFT)
-  targetAudience     String          @default("ALL_SELLERS") @db.VarChar(100)
+  id                 String                     @id @default(cuid())
+  version            String                     @unique @db.VarChar(50)
+  title              String                     @db.VarChar(255)
+  status             GuidelineStatus            @default(DRAFT)
+  targetAudience     String                     @default("ALL_SELLERS") @db.VarChar(100)
   sections           Json
-  requiresAcceptance Boolean         @default(true)
-  contentHash        String?         @db.VarChar(128)
+  requiresAcceptance Boolean                    @default(true)
+  contentHash        String?                    @db.VarChar(128)
   effectiveDate      DateTime?
   publishedAt        DateTime?
-  publishedByAdminId String?         @db.VarChar(40)
-  createdByAdminId   String?         @db.VarChar(40)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-
-  publishedByAdmin Admin?                     @relation("GuidelinePublishedBy", fields: [publishedByAdminId], references: [id], onDelete: SetNull)
-  createdByAdmin   Admin?                     @relation("GuidelineCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
-  agreements       SellerGuidelineAgreement[]
+  publishedByAdminId String?                    @db.VarChar(40)
+  createdByAdminId   String?                    @db.VarChar(40)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  createdByAdmin     Admin?                     @relation("GuidelineCreatedBy", fields: [createdByAdminId], references: [id])
+  publishedByAdmin   Admin?                     @relation("GuidelinePublishedBy", fields: [publishedByAdminId], references: [id])
+  agreements         SellerGuidelineAgreement[]
 
   @@index([status])
   @@index([effectiveDate])
@@ -29,20 +24,19 @@ model CommunityGuideline {
 }
 
 model SellerGuidelineAgreement {
-  id                String   @id @default(cuid())
+  id                String             @id @default(cuid())
   sellerId          String
   guidelineId       String
-  guidelineVersion  String   @db.VarChar(50)
-  documentHash      String   @db.VarChar(128)
-  legalName         String   @db.VarChar(200)
-  ipAddress         String?  @db.VarChar(45)
-  userAgent         String?  @db.VarChar(512)
-  signatureImageUrl String?  @db.VarChar(2048)
-  acceptedAt        DateTime @default(now())
-  createdAt         DateTime @default(now())
-
-  seller    Seller             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  guideline CommunityGuideline @relation(fields: [guidelineId], references: [id], onDelete: Cascade)
+  guidelineVersion  String             @db.VarChar(50)
+  documentHash      String             @db.VarChar(128)
+  legalName         String             @db.VarChar(200)
+  ipAddress         String?            @db.VarChar(45)
+  userAgent         String?            @db.VarChar(512)
+  signatureImageUrl String?            @db.VarChar(2048)
+  acceptedAt        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  guideline         CommunityGuideline @relation(fields: [guidelineId], references: [id], onDelete: Cascade)
+  seller            Seller             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@unique([sellerId, guidelineId])
   @@index([sellerId])
@@ -55,7 +49,7 @@ model MarketplacePolicyNotice {
   id                 String             @id @default(cuid())
   title              String             @db.VarChar(255)
   category           String             @db.VarChar(80)
-  content            String             @db.Text
+  content            String
   effectiveDate      DateTime
   audience           String             @default("ALL_SELLERS") @db.VarChar(100)
   status             PolicyNoticeStatus @default(DRAFT)
@@ -65,10 +59,9 @@ model MarketplacePolicyNotice {
   createdByAdminId   String?            @db.VarChar(40)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
-
-  publishedByAdmin Admin?             @relation("PolicyPublishedBy", fields: [publishedByAdminId], references: [id], onDelete: SetNull)
-  createdByAdmin   Admin?             @relation("PolicyCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
-  reads            PolicyNoticeRead[]
+  createdByAdmin     Admin?             @relation("PolicyCreatedBy", fields: [createdByAdminId], references: [id])
+  publishedByAdmin   Admin?             @relation("PolicyPublishedBy", fields: [publishedByAdminId], references: [id])
+  reads              PolicyNoticeRead[]
 
   @@index([status])
   @@index([effectiveDate])
@@ -77,13 +70,12 @@ model MarketplacePolicyNotice {
 }
 
 model PolicyNoticeRead {
-  id       String   @id @default(cuid())
+  id       String                  @id @default(cuid())
   noticeId String
   sellerId String
-  readAt   DateTime @default(now())
-
-  notice MarketplacePolicyNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
-  seller Seller                  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  readAt   DateTime                @default(now())
+  notice   MarketplacePolicyNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  seller   Seller                  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@unique([noticeId, sellerId])
   @@index([noticeId])

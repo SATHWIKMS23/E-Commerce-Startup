@@ -1,32 +1,27 @@
-// =============================================================================
-// CustomOrder — STL/STEP/OBJ manufacturing requests from customers
-// =============================================================================
-
 model CustomOrder {
-  id                 String            @id @default(cuid())
-  orderNumber        String            @unique @db.VarChar(30)
+  id                 String               @id @default(cuid())
+  orderNumber        String               @unique @db.VarChar(30)
   customerId         String
   shippingAddressId  String?
-  title              String            @db.VarChar(300)
-  description        String            @db.Text
-  material           String?           @db.VarChar(100)
-  quantity           Int               @default(1)
-  status             CustomOrderStatus @default(DRAFT)
+  title              String               @db.VarChar(300)
+  description        String
+  material           String?              @db.VarChar(100)
+  quantity           Int                  @default(1)
+  status             CustomOrderStatus    @default(DRAFT)
   specifications     Json?
-  acceptedQuoteId    String?           @unique
+  acceptedQuoteId    String?              @unique
   submittedAt        DateTime?
   completedAt        DateTime?
   cancelledAt        DateTime?
-  cancellationReason String?           @db.Text
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-
-  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  shippingAddress CustomerAddress?     @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
-  files           CustomOrderFile[]
-  quotes          CustomOrderQuote[]
-  acceptedQuote   CustomOrderQuote?    @relation("AcceptedQuote", fields: [acceptedQuoteId], references: [id], onDelete: SetNull)
-  timelineEvents  OrderTimelineEvent[]
+  cancellationReason String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  files              CustomOrderFile[]
+  quotes             CustomOrderQuote[]
+  acceptedQuote      CustomOrderQuote?    @relation("AcceptedQuote", fields: [acceptedQuoteId], references: [id])
+  customer           Customer             @relation(fields: [customerId], references: [id])
+  shippingAddress    CustomerAddress?     @relation(fields: [shippingAddressId], references: [id])
+  timelineEvents     OrderTimelineEvent[]
 
   @@index([customerId])
   @@index([shippingAddressId])

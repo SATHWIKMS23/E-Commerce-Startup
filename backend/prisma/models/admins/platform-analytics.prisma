@@ -1,7 +1,3 @@
-// =============================================================================
-// PlatformDailyMetric — admin platform-wide analytics aggregates
-// =============================================================================
-
 model PlatformDailyMetric {
   id              String   @id @default(cuid())
   date            DateTime @unique @db.Date

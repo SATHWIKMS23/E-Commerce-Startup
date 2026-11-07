@@ -2,18 +2,17 @@ model PackingFeeRequest {
   id                String                  @id @default(cuid())
   shopId            String
   status            PackingFeeRequestStatus @default(PENDING)
-  reason            String                  @db.Text
-  requestedMaxFee   Decimal?                @db.Decimal(10, 2)
-  approvedMaxFee    Decimal?                @db.Decimal(10, 2)
-  supportingNotes   String?                 @db.Text
-  rejectionReason   String?                 @db.Text
+  reason            String
+  supportingNotes   String?
+  rejectionReason   String?
   reviewedByAdminId String?                 @db.VarChar(30)
   reviewedAt        DateTime?
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
-
-  shop            Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  reviewedByAdmin Admin? @relation("PackingFeeRequestReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  requestedMaxFee   Decimal?                @db.Decimal(10, 2)
+  approvedMaxFee    Decimal?                @db.Decimal(10, 2)
+  reviewedByAdmin   Admin?                  @relation("PackingFeeRequestReviewedBy", fields: [reviewedByAdminId], references: [id])
+  shop              Shop                    @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId])
   @@index([status])

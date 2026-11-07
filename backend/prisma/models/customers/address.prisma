@@ -1,34 +1,29 @@
-// =============================================================================
-// CustomerAddress — customer-only addresses (NEVER shared with seller/DP/admin)
-// =============================================================================
-
 model CustomerAddress {
-  id           String      @id @default(cuid())
-  customerId   String
-  type         AddressType @default(HOME)
-  label        String?     @db.VarChar(100)
-  fullName     String      @db.VarChar(200)
-  phone        String      @db.VarChar(20)
-  addressLine1 String      @db.VarChar(300)
-  addressLine2 String?     @db.VarChar(300)
-  city         String      @db.VarChar(100)
-  state        String      @db.VarChar(100)
-  postalCode   String      @db.VarChar(20)
-  country      String      @default("India") @db.VarChar(100)
-  district     String?     @db.VarChar(100)
-  formattedAddress String? @db.VarChar(500)
-  placeId      String?     @db.VarChar(255)
-  latitude     Decimal?    @db.Decimal(10, 8)
-  longitude    Decimal?    @db.Decimal(11, 8)
-  isDefault    Boolean     @default(false)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  customer              Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  shippingOrders        Order[]         @relation("CustomerShippingAddress")
-  billingOrders         Order[]         @relation("CustomerBillingAddress")
+  id                    String          @id @default(cuid())
+  customerId            String
+  type                  AddressType     @default(HOME)
+  label                 String?         @db.VarChar(100)
+  fullName              String          @db.VarChar(200)
+  phone                 String          @db.VarChar(20)
+  addressLine1          String          @db.VarChar(300)
+  addressLine2          String?         @db.VarChar(300)
+  city                  String          @db.VarChar(100)
+  state                 String          @db.VarChar(100)
+  postalCode            String          @db.VarChar(20)
+  country               String          @db.VarChar(100)
+  latitude              Decimal?        @db.Decimal(10, 8)
+  longitude             Decimal?        @db.Decimal(11, 8)
+  isDefault             Boolean         @default(false)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  district              String?         @db.VarChar(100)
+  formattedAddress      String?         @db.VarChar(500)
+  placeId               String?         @db.VarChar(255)
   customOrders          CustomOrder[]
+  customer              Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
   deliveriesAsDropoff   Delivery[]      @relation("DeliveryDropoffAddress")
+  billingOrders         Order[]         @relation("CustomerBillingAddress")
+  shippingOrders        Order[]         @relation("CustomerShippingAddress")
   returnPickupAddresses ReturnRequest[] @relation("ReturnPickupAddress")
 
   @@index([customerId])

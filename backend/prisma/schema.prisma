@@ -8,9 +8,31 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// -----------------------------------------------------------------------------
-// Shared enums referenced across multiple entity domains
-// -----------------------------------------------------------------------------
+model DeliveryBoy {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String
+  email         String?
+  vehicleNumber String?
+  vehicleType   String?
+  city          String
+  status        String   @default("ACTIVE")
+  rating        Float?   @default(0)
+  availability  Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PlatformDeliverySetting {
+  id                      Int      @id @default(1)
+  customerDeliveryShare   Int      @default(75)
+  sellerDeliveryShare     Int      @default(25)
+  defaultProvider         String   @default("PORTER")
+  maxDeliveryRadiusMeters Int      @default(5000)
+  deliveryEnabled         Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
 
 enum AuthProvider {
   EMAIL
@@ -141,8 +163,6 @@ enum NotificationType {
   RETURN_REJECTED
   SHOP_APPROVED
   SHOP_REJECTED
-  PACKING_FEE_APPROVED
-  PACKING_FEE_REJECTED
   PRODUCT_APPROVED
   PRODUCT_REJECTED
   CUSTOM_ORDER_QUOTE
@@ -151,6 +171,8 @@ enum NotificationType {
   DELIVERY_UPDATE
   PROMOTIONAL
   SYSTEM
+  PACKING_FEE_APPROVED
+  PACKING_FEE_REJECTED
   SELLER_WARNING
   SELLER_STRIKE
   SELLER_SUSPENDED
@@ -181,17 +203,6 @@ enum AdminActionType {
   SELLER_BANNED
   SELLER_UNBANNED
   SELLER_STRIKE_ISSUED
-  SELLER_WARNING_ISSUED
-  SELLER_SUSPENDED
-  SELLER_REINSTATED
-  APPEAL_REVIEWED
-  GUIDELINE_PUBLISHED
-  POLICY_NOTICE_PUBLISHED
-  COMMISSION_STATEMENT_PUBLISHED
-  COMMISSION_PAYMENT_RECORDED
-  CASE_REPORT_RESOLVED
-  POSTMORTEM_CREATED
-  POSTMORTEM_UPDATED
   CUSTOMER_BANNED
   CUSTOMER_UNBANNED
   PRODUCT_APPROVED
@@ -229,6 +240,17 @@ enum AdminActionType {
   REVIEW_RESTORED
   REVIEW_DELETED
   SELLER_VERIFICATION_REVIEWED
+  SELLER_WARNING_ISSUED
+  SELLER_SUSPENDED
+  SELLER_REINSTATED
+  APPEAL_REVIEWED
+  GUIDELINE_PUBLISHED
+  POLICY_NOTICE_PUBLISHED
+  COMMISSION_STATEMENT_PUBLISHED
+  COMMISSION_PAYMENT_RECORDED
+  CASE_REPORT_RESOLVED
+  POSTMORTEM_CREATED
+  POSTMORTEM_UPDATED
   SHOP_AGREEMENT_ISSUED
   SHOP_AGREEMENT_SUPERSEDED
   SHOP_APPROVAL_REQUEST_SUBMITTED
@@ -277,12 +299,12 @@ enum SellerOrderStatus {
   ACCEPTED
   REJECTED
   PROCESSING
-  READY_TO_SHIP
   READY_FOR_PICKUP
   PACKED
   SHIPPED
   DELIVERED
   CANCELLED
+  READY_TO_SHIP
 }
 
 enum ProductReportStatus {
@@ -313,34 +335,4 @@ enum DeliveryPartnerStatus {
   INACTIVE
   SUSPENDED
   OFF_DUTY
-}
-
-// (Delivery models live under prisma/models/delivery-partners/ to avoid duplication)
-
-// Generic delivery driver model (in-house fleet support)
-model DeliveryBoy {
-  id            String   @id @default(cuid())
-  name          String
-  phone         String
-  email         String?
-  vehicleNumber String?
-  vehicleType   String?
-  city          String
-  status        String   @default("ACTIVE")
-  rating        Float?   @default(0)
-  availability  Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-// Platform settings for delivery shares and provider selection
-model PlatformDeliverySetting {
-  id                      Int      @id @default(1)
-  customerDeliveryShare   Int      @default(75)
-  sellerDeliveryShare     Int      @default(25)
-  defaultProvider         String   @default("PORTER")
-  maxDeliveryRadiusMeters Int      @default(5000)
-  deliveryEnabled         Boolean  @default(true)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
 }

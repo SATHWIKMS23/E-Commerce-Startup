@@ -1,22 +1,17 @@
 model SellerBankAccount {
-  id       String @id @default(cuid())
-  sellerId String
-
-  accountHolderName String? @db.VarChar(200)
-  bankName          String? @db.VarChar(200)
-  accountNumber     String? @db.VarChar(50)
-  ifscCode          String? @db.VarChar(20)
-
-  upiId String? @db.VarChar(100)
-
-  isDefault  Boolean @default(true)
-  isVerified Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  seller        Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  sellerPayouts SellerPayout[]
+  id                String         @id @default(cuid())
+  sellerId          String
+  accountHolderName String?        @db.VarChar(200)
+  bankName          String?        @db.VarChar(200)
+  accountNumber     String?        @db.VarChar(50)
+  ifscCode          String?        @db.VarChar(20)
+  isDefault         Boolean        @default(true)
+  isVerified        Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  upiId             String?        @db.VarChar(100)
+  seller            Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerPayouts     SellerPayout[]
 
   @@index([sellerId])
   @@map("seller_bank_accounts")

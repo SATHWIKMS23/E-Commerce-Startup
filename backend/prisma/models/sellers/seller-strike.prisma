@@ -1,30 +1,25 @@
-// =============================================================================
-// SellerEnforcement — Warnings, Strikes, Suspensions & Appeals
-// =============================================================================
-
 model SellerStrike {
   id               String            @id @default(cuid())
-  reference        String?           @unique @db.VarChar(40)
   sellerId         String
   adminId          String
-  type             EnforcementType   @default(STRIKE)
-  status           EnforcementStatus @default(ISSUED)
   severity         StrikeSeverity    @default(WARNING)
-  reason           String            @db.Text
-  description      String?           @db.Text
-  guidelineVersion String?           @db.VarChar(50)
-  guidelineClause  String?           @db.VarChar(100)
-  evidenceUrls     String[]          @default([])
-  relatedReportId  String?           @db.VarChar(40)
+  reason           String
+  description      String?
   isActive         Boolean           @default(true)
   expiresAt        DateTime?
   issuedAt         DateTime          @default(now())
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-
-  seller Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  admin  Admin         @relation(fields: [adminId], references: [id], onDelete: Restrict)
-  appeal SellerAppeal?
+  evidenceUrls     String[]          @default([])
+  guidelineClause  String?           @db.VarChar(100)
+  guidelineVersion String?           @db.VarChar(50)
+  reference        String?           @unique @db.VarChar(40)
+  relatedReportId  String?           @db.VarChar(40)
+  status           EnforcementStatus @default(ISSUED)
+  type             EnforcementType   @default(STRIKE)
+  appeal           SellerAppeal?
+  admin            Admin             @relation(fields: [adminId], references: [id])
+  seller           Seller            @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([sellerId])
   @@index([adminId])
@@ -40,18 +35,17 @@ model SellerSuspension {
   id                  String         @id @default(cuid())
   sellerId            String
   type                SuspensionType @default(THREE_STRIKES)
-  reason              String         @db.Text
+  reason              String
   suspendedAt         DateTime       @default(now())
   reinstatedAt        DateTime?
-  reinstatementReason String?        @db.Text
+  reinstatementReason String?
   adminId             String?
   reinstatedByAdminId String?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
-
-  seller            Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  admin             Admin? @relation("SuspensionIssuedBy", fields: [adminId], references: [id], onDelete: SetNull)
-  reinstatedByAdmin Admin? @relation("SuspensionReinstatedBy", fields: [reinstatedByAdminId], references: [id], onDelete: SetNull)
+  admin               Admin?         @relation("SuspensionIssuedBy", fields: [adminId], references: [id])
+  reinstatedByAdmin   Admin?         @relation("SuspensionReinstatedBy", fields: [reinstatedByAdminId], references: [id])
+  seller              Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([sellerId])
   @@index([type])
@@ -60,30 +54,29 @@ model SellerSuspension {
 }
 
 model SellerAppeal {
-  id                String       @id @default(cuid())
-  reference         String       @unique @db.VarChar(40)
+  id                String        @id @default(cuid())
+  reference         String        @unique @db.VarChar(40)
   sellerId          String
-  enforcementId     String       @unique
-  status            AppealStatus @default(PENDING)
-  sellerExplanation String       @db.Text
-  sellerAttachments String[]     @default([])
-  orderId           String?      @db.VarChar(40)
-  reportId          String?      @db.VarChar(40)
+  enforcementId     String        @unique
+  status            AppealStatus  @default(PENDING)
+  sellerExplanation String
+  sellerAttachments String[]      @default([])
+  orderId           String?       @db.VarChar(40)
+  reportId          String?       @db.VarChar(40)
   deadline          DateTime?
-  assignedAdminId   String?      @db.VarChar(40)
-  decisionReason    String?      @db.Text
-  decidedByAdminId  String?      @db.VarChar(40)
+  assignedAdminId   String?       @db.VarChar(40)
+  decisionReason    String?
+  decidedByAdminId  String?       @db.VarChar(40)
   decidedAt         DateTime?
-  internalNotes     String?      @db.Text
-  submittedAt       DateTime     @default(now())
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
-  seller         Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  enforcement    SellerStrike  @relation(fields: [enforcementId], references: [id], onDelete: Cascade)
-  assignedAdmin  Admin?        @relation("AppealAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
-  decidedByAdmin Admin?        @relation("AppealDecidedAdmin", fields: [decidedByAdminId], references: [id], onDelete: SetNull)
-  events         AppealEvent[]
+  internalNotes     String?
+  submittedAt       DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  events            AppealEvent[]
+  assignedAdmin     Admin?        @relation("AppealAssignedAdmin", fields: [assignedAdminId], references: [id])
+  decidedByAdmin    Admin?        @relation("AppealDecidedAdmin", fields: [decidedByAdminId], references: [id])
+  enforcement       SellerStrike  @relation(fields: [enforcementId], references: [id], onDelete: Cascade)
+  seller            Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([sellerId])
   @@index([status])
@@ -93,16 +86,15 @@ model SellerAppeal {
 }
 
 model AppealEvent {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   appealId  String
-  actorType String   @db.VarChar(20)
-  actorId   String   @db.VarChar(40)
-  eventType String   @db.VarChar(50)
-  note      String?  @db.Text
+  actorType String       @db.VarChar(20)
+  actorId   String       @db.VarChar(40)
+  eventType String       @db.VarChar(50)
+  note      String?
   metadata  Json?
-  createdAt DateTime @default(now())
-
-  appeal SellerAppeal @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  appeal    SellerAppeal @relation(fields: [appealId], references: [id], onDelete: Cascade)
 
   @@index([appealId])
   @@index([createdAt])

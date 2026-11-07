@@ -1,24 +1,19 @@
-// =============================================================================
-// Review — one review per order item after delivery completion
-// =============================================================================
-
 model Review {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   customerId  String
   productId   String
-  orderItemId String   @unique
+  orderItemId String    @unique
   rating      Int
-  title       String?  @db.VarChar(200)
-  comment     String?  @db.Text
-  reply       String?  @db.Text
-  isVerified  Boolean  @default(true)
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  title       String?   @db.VarChar(200)
+  comment     String?
+  isVerified  Boolean   @default(true)
+  isPublished Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  reply       String?
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
   @@index([productId])

@@ -1,7 +1,3 @@
-// =============================================================================
-// CustomOrderFile — uploaded CAD files (STL, STEP, OBJ)
-// =============================================================================
-
 model CustomOrderFile {
   id            String         @id @default(cuid())
   customOrderId String
@@ -11,8 +7,7 @@ model CustomOrderFile {
   fileSizeBytes BigInt
   mimeType      String?        @db.VarChar(100)
   uploadedAt    DateTime       @default(now())
-
-  customOrder CustomOrder @relation(fields: [customOrderId], references: [id], onDelete: Cascade)
+  customOrder   CustomOrder    @relation(fields: [customOrderId], references: [id], onDelete: Cascade)
 
   @@index([customOrderId])
   @@index([fileType])
