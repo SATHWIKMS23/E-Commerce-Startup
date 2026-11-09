@@ -3,6 +3,7 @@ model Conversation {
   type              ConversationType          @default(CUSTOMER_ADMIN)
   customerId        String?
   sellerId          String?
+  deliveryPartnerId String?
   subject           String?                   @db.VarChar(255)
   status            ConversationStatus        @default(OPEN)
   priority          SupportTicketPriority     @default(MEDIUM)
@@ -18,10 +19,12 @@ model Conversation {
   assignedAdmin     Admin?                    @relation("ConversationAssignedAdmin", fields: [assignedAdminId], references: [id])
   customer          Customer?                 @relation(fields: [customerId], references: [id], onDelete: Cascade)
   seller            Seller?                   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  deliveryPartner   DeliveryPartner?          @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
 
   @@index([type])
   @@index([customerId])
   @@index([sellerId])
+  @@index([deliveryPartnerId])
   @@index([status])
   @@index([priority])
   @@index([assignedAdminId])

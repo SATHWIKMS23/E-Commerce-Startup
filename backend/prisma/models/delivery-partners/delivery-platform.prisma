@@ -1,0 +1,237 @@
+model DeliveryAssignment {
+  id                String          @id @default(cuid())
+  deliveryId        String
+  deliveryPartnerId String
+  status            String          @default("OFFERED") // OFFERED, ACCEPTED, REJECTED, TIMEOUT, EXPIRED, CANCELLED
+  offeredAt         DateTime        @default(now())
+  expiresAt         DateTime
+  respondedAt       DateTime?
+  rejectionReason   String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  delivery          Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@index([deliveryPartnerId])
+  @@index([status])
+  @@map("delivery_assignments")
+}
+
+model DeliveryTimelineEvent {
+  id          String   @id @default(cuid())
+  deliveryId  String
+  status      String
+  actorType   String   // ADMIN, RIDER, SELLER, CUSTOMER, SYSTEM
+  actorId     String?
+  actorName   String?
+  title       String
+  description String?
+  metadata    Json?
+  timestamp   DateTime @default(now())
+  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@index([timestamp])
+  @@map("delivery_timeline_events")
+}
+
+model DeliveryRating {
+  id                String          @id @default(cuid())
+  deliveryId        String
+  deliveryPartnerId String
+  raterType         String          // CUSTOMER, SELLER, EXTERNAL_SHOP
+  raterId           String
+  raterName         String?
+  rating            Int             // 1 to 5
+  review            String?
+  tags              String[]        @default([])
+  createdAt         DateTime        @default(now())
+  delivery          Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryId, raterType, raterId])
+  @@index([deliveryPartnerId])
+  @@index([deliveryId])
+  @@map("delivery_ratings")
+}
+
+model DeliveryIncident {
+  id                    String          @id @default(cuid())
+  deliveryId            String
+  deliveryPartnerId     String
+  reporterType          String          // CUSTOMER, SELLER, EXTERNAL_SHOP, ADMIN
+  reporterId            String
+  reporterName          String?
+  incidentType          String          // ITEM_DAMAGED, WRONG_DELIVERY, RUDE_BEHAVIOR, LATE, THEFT, OTHER
+  description           String
+  evidenceUrls          String[]        @default([])
+  riderResponse         String?
+  riderRespondedAt      DateTime?
+  status                String          @default("REPORTED") // REPORTED, UNDER_INVESTIGATION, CONFIRMED, DISMISSED, APPEALED
+  adminDecision         String?         // PENALTY_APPLIED, WARNING_ISSUED, DISMISSED
+  adminNotes            String?
+  penaltyPercentage     Decimal?        @db.Decimal(5, 2)
+  payoutAdjustmentPaise Int?
+  strikeIssued          Boolean         @default(false)
+  decidedAt             DateTime?
+  decidedByAdminId      String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  delivery              Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  deliveryPartner       DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  strikes               RiderStrike[]
+
+  @@index([deliveryId])
+  @@index([deliveryPartnerId])
+  @@index([status])
+  @@map("delivery_incidents")
+}
+
+model RiderStrike {
+  id                     String            @id @default(cuid())
+  deliveryPartnerId      String
+  incidentId             String?
+  strikeNumber           Int
+  reason                 String
+  issuedByAdminId        String
+  isAppealed             Boolean           @default(false)
+  appealNotes            String?
+  appealStatus           String?           // PENDING, APPROVED, REJECTED
+  appealDecidedByAdminId String?
+  appealDecidedAt        DateTime?
+  isRevoked              Boolean           @default(false)
+  revokedAt              DateTime?
+  createdAt              DateTime          @default(now())
+  deliveryPartner        DeliveryPartner   @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  incident               DeliveryIncident? @relation(fields: [incidentId], references: [id])
+
+  @@index([deliveryPartnerId])
+  @@map("rider_strikes")
+}
+
+model ExternalDeliveryShop {
+  id                    String     @id @default(cuid())
+  name                  String     @db.VarChar(150)
+  category              String     @db.VarChar(60) // GROCERY, PHARMACY, RESTAURANT, CLOTHING, ELECTRONICS, FLOWERS, BAKERY, OTHER
+  contactPerson         String     @db.VarChar(100)
+  phone                 String     @unique @db.VarChar(20)
+  email                 String?    @db.VarChar(320)
+  addressLine1          String     @db.VarChar(300)
+  addressLine2          String?    @db.VarChar(300)
+  city                  String     @default("Mysuru") @db.VarChar(100)
+  state                 String     @default("Karnataka") @db.VarChar(100)
+  postalCode            String     @db.VarChar(20)
+  latitude              Decimal?   @db.Decimal(10, 8)
+  longitude             Decimal?   @db.Decimal(11, 8)
+  status                String     @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  pricingAgreementNotes String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  deliveries            Delivery[]
+
+  @@index([phone])
+  @@index([status])
+  @@map("external_delivery_shops")
+}
+
+model DeliveryGlobalSetting {
+  id                           Int      @id @default(1)
+  riderPayoutPercentage        Decimal  @default(90.00) @db.Decimal(5, 2)
+  platformCommissionPercentage Decimal  @default(10.00) @db.Decimal(5, 2)
+  baseChargePaise              Int      @default(3000) // ₹30
+  perKmChargePaise             Int      @default(1000) // ₹10/km
+  minDeliveryChargePaise       Int      @default(4000) // ₹40
+  maxDeliveryRadiusMeters      Int      @default(25000) // 25 km
+  assignmentTimeoutSeconds     Int      @default(30)
+  searchRadiusMeters           Int      @default(5000)
+  maxAssignmentAttempts        Int      @default(3)
+  maxMonthlyRiderCancellations Int      @default(5)
+  damagePenaltyPercentage      Decimal  @default(20.00) @db.Decimal(5, 2)
+  maxStrikesBeforeBan          Int      @default(3)
+  activeCity                   String   @default("Mysuru")
+  supportedVehicles            String[] @default(["BICYCLE", "MOTORCYCLE", "SCOOTER", "EV"])
+  isDeliveryServiceEnabled     Boolean  @default(true)
+  updatedByAdminId             String?
+  updatedAt                    DateTime @updatedAt
+
+  @@map("delivery_global_settings")
+}
+
+model DeliverySettingsAuditLog {
+  id            String   @id @default(cuid())
+  adminId       String
+  settingKey    String
+  previousValue String
+  newValue      String
+  reason        String?
+  timestamp     DateTime @default(now())
+
+  @@index([timestamp])
+  @@map("delivery_settings_audit_logs")
+}
+
+model RiderPayout {
+  id                   String          @id @default(cuid())
+  deliveryPartnerId    String
+  periodStart          DateTime
+  periodEnd            DateTime
+  totalDeliveriesCount Int
+  grossAmountPaise     Int
+  deductionsPaise      Int             @default(0)
+  netAmountPaise       Int
+  status               String          @default("PENDING") // PENDING, APPROVED, PROCESSING, PAID, REJECTED
+  paymentReference     String?
+  paymentMethod        String?
+  approvedByAdminId    String?
+  approvedAt           DateTime?
+  paidAt               DateTime?
+  notes                String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deliveryPartner      DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryPartnerId])
+  @@index([status])
+  @@map("rider_payouts")
+}
+
+model RiderDocument {
+  id                String          @id @default(cuid())
+  deliveryPartnerId String
+  documentType      String          // AADHAAR, DRIVING_LICENSE, VEHICLE_RC, INSURANCE, VEHICLE_PHOTO, PROFILE_PHOTO
+  documentNumber    String?
+  documentUrl       String          @db.VarChar(2048)
+  fileKey           String?
+  status            String          @default("PENDING") // PENDING, APPROVED, REJECTED
+  rejectionReason   String?
+  verifiedByAdminId String?
+  verifiedAt        DateTime?
+  isEncrypted       Boolean         @default(false)
+  isDeleted         Boolean         @default(false)
+  deletedAt         DateTime?
+  deletedByAdminId  String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryPartnerId])
+  @@index([documentType])
+  @@index([isDeleted])
+  @@map("rider_documents")
+}
+
+model DeliveryZone {
+  id              String   @id @default(cuid())
+  name            String
+  city            String   @default("Mysuru")
+  centerLat       Decimal  @db.Decimal(10, 8)
+  centerLng       Decimal  @db.Decimal(11, 8)
+  radiusMeters    Int      @default(5000)
+  isActive        Boolean  @default(true)
+  surgeMultiplier Decimal  @default(1.0) @db.Decimal(3, 2)
+  createdAt       DateTime @default(now())
+
+  @@index([city])
+  @@map("delivery_zones")
+}

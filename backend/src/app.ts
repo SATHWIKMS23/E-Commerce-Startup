@@ -71,6 +71,8 @@ ensureDefaultDeliveryMethods().catch(err => console.error("Auto-seed delivery me
 import deliveryRoute from './modules/delivery/routes/deliveryRoute.js';
 import sellerDeliveryRoute from './modules/delivery/routes/sellerDeliveryRoute.js';
 import adminDeliveryRoute from './modules/delivery/routes/adminDeliveryRoute.js';
+import riderRoute from './modules/delivery/routes/riderRoute.js';
+import externalShopRoute from './modules/delivery/routes/externalShopRoute.js';
 import deliveryWebhook from './modules/delivery/webhooks/deliveryWebhook.js';
 import storageRoute from './modules/storage/routes/storage.routes.js';
 import { publicBrandingRouter, adminBrandingRouter } from './modules/admin/routes/brandingRoute.js';
@@ -272,6 +274,8 @@ app.use('/api/admin/delivery-methods', adminLimiter, adminDeliveryMethodRoute);
 app.use('/', deliveryRoute);
 app.use('/', sellerDeliveryRoute);
 app.use('/api/admin', adminLimiter, adminDeliveryRoute);
+app.use('/', riderRoute);
+app.use('/', externalShopRoute);
 app.use('/', deliveryWebhook);
 app.use('/api/storage', storageRoute);
 

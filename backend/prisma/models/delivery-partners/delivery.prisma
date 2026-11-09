@@ -1,36 +1,81 @@
 model Delivery {
-  id                       String               @id @default(cuid())
-  deliveryNumber           String               @unique @db.VarChar(30)
-  sellerOrderId            String               @unique
-  deliveryPartnerId        String
-  pickupSellerAddressId    String
-  dropoffCustomerAddressId String
-  status                   DeliveryStatus       @default(ASSIGNED)
+  id                       String                  @id @default(cuid())
+  deliveryNumber           String                  @unique @db.VarChar(30)
+  sellerOrderId            String?                 @unique
+  externalShopId           String?
+  deliveryPartnerId        String?
+  pickupSellerAddressId    String?
+  dropoffCustomerAddressId String?
+  status                   DeliveryStatus          @default(REQUESTED)
   pickupAddressSnapshot    Json
   deliveryAddressSnapshot  Json
+  pickupContactName        String?                 @db.VarChar(100)
+  pickupContactPhone       String?                 @db.VarChar(20)
+  dropoffContactName       String?                 @db.VarChar(100)
+  dropoffContactPhone      String?                 @db.VarChar(20)
+  pickupLat                Decimal?                @db.Decimal(10, 8)
+  pickupLng                Decimal?                @db.Decimal(11, 8)
+  dropoffLat               Decimal?                @db.Decimal(10, 8)
+  dropoffLng               Decimal?                @db.Decimal(11, 8)
+  distanceKm               Decimal?                @db.Decimal(6, 2)
+  estimatedDurationMins    Int?
+  baseChargePaise          Int                     @default(0)
+  distanceChargePaise      Int                     @default(0)
+  additionalChargePaise    Int                     @default(0)
+  deliveryFeePaise         Int                     @default(0)
+  riderPayoutPercentage    Decimal                 @default(90.00) @db.Decimal(5, 2)
+  riderPayoutPaise         Int                     @default(0)
+  platformCommissionPaise  Int                     @default(0)
+  payoutStatus             String                  @default("PENDING")
+  pickupOtpHash            String?
+  pickupOtpExpiresAt       DateTime?
+  pickupOtpVerifiedAt      DateTime?
+  pickupQrToken            String?
+  deliveryOtpHash          String?
+  deliveryOtpExpiresAt     DateTime?
+  deliveryOtpVerifiedAt    DateTime?
   estimatedPickupAt        DateTime?
   actualPickupAt           DateTime?
   estimatedDeliveryAt      DateTime?
   actualDeliveryAt         DateTime?
-  assignedAt               DateTime             @default(now())
+  requestedAt              DateTime                @default(now())
+  searchStartedAt          DateTime?
+  offeredAt                DateTime?
+  assignedAt               DateTime?
   acceptedAt               DateTime?
+  arrivedAtPickupAt        DateTime?
+  pickedUpAt               DateTime?
+  inTransitAt              DateTime?
+  arrivedAtDropoffAt       DateTime?
+  deliveredAt              DateTime?
   completedAt              DateTime?
   failedAt                 DateTime?
   failureReason            String?
+  cancelledAt              DateTime?
+  cancellationReason       String?
+  cancelledBy              String?
   notes                    String?
-  createdAt                DateTime             @default(now())
-  updatedAt                DateTime             @updatedAt
-  deliveryPartner          DeliveryPartner      @relation(fields: [deliveryPartnerId], references: [id])
-  dropoffCustomerAddress   CustomerAddress      @relation("DeliveryDropoffAddress", fields: [dropoffCustomerAddressId], references: [id])
-  pickupSellerAddress      SellerAddress        @relation("DeliveryPickupAddress", fields: [pickupSellerAddressId], references: [id])
-  sellerOrder              SellerOrder          @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  deliveryPartner          DeliveryPartner?        @relation(fields: [deliveryPartnerId], references: [id])
+  dropoffCustomerAddress   CustomerAddress?        @relation("DeliveryDropoffAddress", fields: [dropoffCustomerAddressId], references: [id])
+  pickupSellerAddress      SellerAddress?          @relation("DeliveryPickupAddress", fields: [pickupSellerAddressId], references: [id])
+  sellerOrder              SellerOrder?            @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
+  externalShop             ExternalDeliveryShop?   @relation(fields: [externalShopId], references: [id])
   proofs                   DeliveryProof[]
   timelineEvents           OrderTimelineEvent[]
+  deliveryTimelineEvents   DeliveryTimelineEvent[]
+  assignments              DeliveryAssignment[]
+  ratings                  DeliveryRating[]
+  incidents                DeliveryIncident[]
 
   @@index([deliveryPartnerId])
+  @@index([sellerOrderId])
+  @@index([externalShopId])
   @@index([pickupSellerAddressId])
   @@index([dropoffCustomerAddressId])
   @@index([status])
+  @@index([requestedAt])
   @@index([assignedAt])
   @@index([deliveryPartnerId, status])
   @@index([estimatedDeliveryAt])

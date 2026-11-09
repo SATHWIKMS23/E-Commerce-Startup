@@ -90,8 +90,8 @@ export const trackDelivery = async (req: Request, res: Response) => {
 
     const isAuthorized =
       req.adminId ||
-      (req.customerId && delivery.sellerOrder.order.customerId === req.customerId) ||
-      (req.sellerId && delivery.sellerOrder.sellerId === req.sellerId) ||
+      (req.customerId && delivery.sellerOrder?.order.customerId === req.customerId) ||
+      (req.sellerId && delivery.sellerOrder?.sellerId === req.sellerId) ||
       (req.deliveryPartnerId && delivery.deliveryPartnerId === req.deliveryPartnerId);
 
     if (!isAuthorized) {
@@ -184,7 +184,7 @@ export const uploadDeliveryProof = async (req: Request, res: Response) => {
     // create a DeliveryProof record and update delivery timestamps/status
     const delivery = await prisma.delivery.findUnique({ where: { id: deliveryId } });
     if (!delivery) return res.status(404).json({ message: 'Delivery not found' });
-    const dp = await prisma.deliveryProof.create({ data: { deliveryId, deliveryPartnerId: delivery.deliveryPartnerId, proofType: 'DELIVERY', imageUrl: proofImage } });
+    const dp = await prisma.deliveryProof.create({ data: { deliveryId, deliveryPartnerId: delivery.deliveryPartnerId || 'system', proofType: 'DELIVERY', imageUrl: proofImage } });
     const updated = await prisma.delivery.update({ where: { id: deliveryId }, data: { status: 'DELIVERED', actualDeliveryAt: new Date(), completedAt: new Date() } });
     await prisma.orderTimelineEvent.create({ data: { entityType: "DELIVERY", deliveryId: deliveryId, status: "DELIVERED", title: "Delivery Proof Uploaded", description: "Proof uploaded by delivery partner", metadata: { proofImage } } });
     return res.status(200).json({ delivery: updated, proof: dp });
@@ -208,8 +208,8 @@ export const getDeliveryTimeline = async (req: Request, res: Response) => {
 
     const isAuthorized =
       req.adminId ||
-      (req.customerId && delivery.sellerOrder.order.customerId === req.customerId) ||
-      (req.sellerId && delivery.sellerOrder.sellerId === req.sellerId) ||
+      (req.customerId && delivery.sellerOrder?.order.customerId === req.customerId) ||
+      (req.sellerId && delivery.sellerOrder?.sellerId === req.sellerId) ||
       (req.deliveryPartnerId && delivery.deliveryPartnerId === req.deliveryPartnerId);
 
     if (!isAuthorized) {

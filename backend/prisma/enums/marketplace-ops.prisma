@@ -80,6 +80,7 @@ enum PostmortemStatus {
 enum ConversationType {
   CUSTOMER_ADMIN
   SELLER_ADMIN
+  DELIVERY_ADMIN
 }
 
 enum ConversationStatus {
@@ -93,4 +94,5 @@ enum MessageSenderType {
   SELLER
   ADMIN
   SYSTEM
+  DELIVERY_PARTNER
 }

@@ -9,7 +9,7 @@ import { logger } from "../../config/logger.js";
 
 export interface AuthenticatedClient {
     ws: WebSocket;
-    actorType: "ADMIN" | "SELLER" | "CUSTOMER";
+    actorType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER";
     actorId: string;
     actorName: string;
     subscribedConversations: Set<string>;
@@ -34,7 +34,7 @@ export function getConnectedClientCount(): number {
 async function authenticateToken(
     token: string,
     roleHint?: string
-): Promise<{ actorType: "ADMIN" | "SELLER" | "CUSTOMER"; actorId: string; actorName: string } | null> {
+): Promise<{ actorType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER"; actorId: string; actorName: string } | null> {
     try {
         const secret = getJwtSecret();
         const customerSecret = process.env.JWT_SECRET_KEY || secret;
@@ -116,6 +116,33 @@ async function authenticateToken(
             }
         }
 
+        // Try Delivery Partner / Rider
+        if (!roleHint || roleHint === "rider" || roleHint === "delivery_partner") {
+            try {
+                let decoded: any;
+                try {
+                    decoded = jwt.verify(token, customerSecret);
+                } catch {
+                    decoded = jwt.verify(token, secret);
+                }
+                if (decoded && decoded.id) {
+                    const rider = await prisma.deliveryPartner.findUnique({
+                        where: { id: decoded.id },
+                        select: { id: true, firstName: true, lastName: true, status: true }
+                    });
+                    if (rider) {
+                        return {
+                            actorType: "DELIVERY_PARTNER",
+                            actorId: rider.id,
+                            actorName: `${rider.firstName || "Rider"} ${rider.lastName || ""}`.trim()
+                        };
+                    }
+                }
+            } catch {
+                // Not delivery partner
+            }
+        }
+
         return null;
     } catch (err) {
         return null;
@@ -148,6 +175,14 @@ async function autoSubscribeClientConversations(client: AuthenticatedClient): Pr
             for (const c of convs) {
                 client.subscribedConversations.add(c.id);
             }
+        } else if (client.actorType === "DELIVERY_PARTNER") {
+            const convs = await prisma.conversation.findMany({
+                where: { deliveryPartnerId: client.actorId },
+                select: { id: true }
+            });
+            for (const c of convs) {
+                client.subscribedConversations.add(c.id);
+            }
         }
     } catch (err: any) {
         logger.warn("[WS] Error auto-subscribing client to conversations:", {
@@ -158,7 +193,7 @@ async function autoSubscribeClientConversations(client: AuthenticatedClient): Pr
 }
 
 export function subscribeActorToConversation(
-    actorType: "ADMIN" | "SELLER" | "CUSTOMER",
+    actorType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER",
     actorId: string,
     conversationId: string
 ): void {
@@ -518,10 +553,13 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
                 token = extractCookie(req.headers.cookie, "seller_session") || extractCookie(req.headers.cookie, "seller_access_token");
             } else if (role === "admin") {
                 token = extractCookie(req.headers.cookie, "admin_session") || extractCookie(req.headers.cookie, "admin_access_token");
+            } else if (role === "rider" || role === "delivery_partner") {
+                token = extractCookie(req.headers.cookie, "delivery_partner_session");
             }
 
             if (!token) {
-                token = extractCookie(req.headers.cookie, "customer_session") ||
+                token = extractCookie(req.headers.cookie, "delivery_partner_session") ||
+                        extractCookie(req.headers.cookie, "customer_session") ||
                         extractCookie(req.headers.cookie, "seller_session") ||
                         extractCookie(req.headers.cookie, "admin_session") ||
                         extractCookie(req.headers.cookie, "accessToken") ||
@@ -534,7 +572,7 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
             token = req.headers.authorization.split(" ")[1];
         }
 
-        let authData: { actorType: "ADMIN" | "SELLER" | "CUSTOMER"; actorId: string; actorName: string } | null = null;
+        let authData: { actorType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER"; actorId: string; actorName: string } | null = null;
 
         if (token) {
             authData = await authenticateToken(token, role);
@@ -542,7 +580,7 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
 
         const client: AuthenticatedClient = {
             ws,
-            actorType: authData?.actorType || (role === "admin" ? "ADMIN" : role === "seller" ? "SELLER" : "CUSTOMER"),
+            actorType: authData?.actorType || (role === "admin" ? "ADMIN" : role === "seller" ? "SELLER" : role === "rider" ? "DELIVERY_PARTNER" : "CUSTOMER"),
             actorId: authData?.actorId || "",
             actorName: authData?.actorName || "",
             subscribedConversations: new Set(),
@@ -689,6 +727,9 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
                         if (client.actorType === "SELLER" && conv.sellerId !== client.actorId) {
                             return ws.send(JSON.stringify({ type: "error", message: "Unauthorized for this conversation" }));
                         }
+                        if (client.actorType === "DELIVERY_PARTNER" && conv.deliveryPartnerId !== client.actorId) {
+                            return ws.send(JSON.stringify({ type: "error", message: "Unauthorized for this conversation" }));
+                        }
 
                         // Check duplicate clientMessageId
                         if (clientMessageId) {
@@ -708,6 +749,7 @@ export function setupChatWebSocketServer(httpServer: HttpServer) {
                         let senderType: MessageSenderType = MessageSenderType.CUSTOMER;
                         if (client.actorType === "ADMIN") senderType = MessageSenderType.ADMIN;
                         else if (client.actorType === "SELLER") senderType = MessageSenderType.SELLER;
+                        else if (client.actorType === "DELIVERY_PARTNER") senderType = MessageSenderType.DELIVERY_PARTNER;
 
                         // Non-admin cannot create internal messages
                         const safeIsInternal = client.actorType === "ADMIN" ? Boolean(isInternal) : false;
@@ -1025,7 +1067,7 @@ export async function broadcastToConversation(
  */
 export async function broadcastReadReceipt(
     conversationId: string,
-    readerType: "ADMIN" | "SELLER" | "CUSTOMER",
+    readerType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER",
     readerId: string,
     readAt: string = new Date().toISOString()
 ): Promise<boolean> {
@@ -1064,7 +1106,7 @@ export async function broadcastReadReceipt(
  */
 export async function broadcastTyping(
     conversationId: string,
-    actorType: "ADMIN" | "SELLER" | "CUSTOMER",
+    actorType: "ADMIN" | "SELLER" | "CUSTOMER" | "DELIVERY_PARTNER",
     actorId: string,
     actorName: string,
     isTyping: boolean,

@@ -1,0 +1,9 @@
+enum RiderVerificationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ACTION_REQUIRED
+  SUSPENDED
+  BANNED
+}

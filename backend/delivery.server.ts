@@ -13,19 +13,27 @@ import { adminLimiter, webhookLimiter } from './src/middleware/rateLimiter.js';
 // Delivery routes
 import deliveryRoute from './src/modules/delivery/routes/deliveryRoute.js';
 import sellerDeliveryRoute from './src/modules/delivery/routes/sellerDeliveryRoute.js';
+import adminDeliveryRoute from './src/modules/delivery/routes/adminDeliveryRoute.js';
+import riderRoute from './src/modules/delivery/routes/riderRoute.js';
+import externalShopRoute from './src/modules/delivery/routes/externalShopRoute.js';
 import deliveryWebhook from './src/modules/delivery/webhooks/deliveryWebhook.js';
+import { setupChatWebSocketServer } from './src/services/chat/chat.service.js';
 
 const app = express();
 configureMiddlewares(app);
 
 app.use('/', adminLimiter, deliveryRoute);
 app.use('/', adminLimiter, sellerDeliveryRoute);
+app.use('/api/admin', adminLimiter, adminDeliveryRoute);
+app.use('/', riderRoute);
+app.use('/', externalShopRoute);
 app.use('/', webhookLimiter, deliveryWebhook);
 
 configureErrorHandlers(app);
 
 const PORT = Number(process.env.DELIVERY_PORT || process.env.PORT || 3004);
 const server = http.createServer(app);
+setupChatWebSocketServer(server);
 
 server.listen(PORT, () => {
     console.log(`Delivery server is running on PORT : ${PORT}`);
