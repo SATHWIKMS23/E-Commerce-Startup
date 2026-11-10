@@ -113,52 +113,55 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen bg-[#07070a] text-zinc-100">
       <Navbar />
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden pt-8 pb-14 sm:pt-20 sm:pb-24">
+      <main className="flex-1 flex flex-col">
+        {/* Hero Section — Fully occupies the first viewport screen on all desktop and mobile devices */}
+        <section className="relative overflow-hidden min-h-[calc(100vh-3.5rem)] min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100vh-4rem)] sm:min-h-[calc(100dvh-4rem)] flex flex-col justify-between py-6 sm:py-10 lg:py-14">
           {/* Single clean subtle monochrome gradient */}
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] bg-white/[0.025] blur-[140px] pointer-events-none rounded-full" />
 
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-5 sm:space-y-6">
-            {/* Top Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 text-[11px] sm:text-xs font-medium">
-              <Sparkles className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-              <span className="truncate max-w-[280px] sm:max-w-none">{heroBadge}</span>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 flex flex-col justify-between flex-1 w-full my-auto space-y-6 sm:space-y-8">
+            {/* Top Area: Badge, Headings, Subtitle, and Sleek Action Buttons */}
+            <div className="space-y-4 sm:space-y-6 my-auto pt-2 sm:pt-4">
+              {/* Top Badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 text-[11px] sm:text-xs font-medium">
+                <Sparkles className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                <span className="truncate max-w-[280px] sm:max-w-none">{heroBadge}</span>
+              </div>
+
+              {/* Hero Heading */}
+              <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.14]">
+                {heroHeading1} <br className="hidden xs:inline" />
+                <span className="text-zinc-400 font-medium">
+                  {" "}{heroHeading2}
+                </span>
+              </h1>
+
+              {/* Hero Subtitle */}
+              <p className="max-w-2xl mx-auto text-xs sm:text-sm md:text-base text-zinc-400 leading-relaxed font-normal px-2">
+                {heroDesc}
+              </p>
+
+              {/* Action Buttons (Sleek, refined sizing with comfortable spacing) */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 pt-1 max-w-[240px] sm:max-w-none mx-auto w-full">
+                <Link
+                  href="/register"
+                  className="w-full sm:w-auto px-5 sm:px-6 py-2.5 rounded-xl bg-white text-zinc-950 font-semibold text-xs sm:text-sm hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
+                >
+                  <span>Register as a Rider</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/login"
+                  className="w-full sm:w-auto px-5 sm:px-6 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-xs sm:text-sm transition-colors flex items-center justify-center whitespace-nowrap"
+                >
+                  Rider Sign In
+                </Link>
+              </div>
             </div>
 
-            {/* Hero Heading */}
-            <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.14]">
-              {heroHeading1} <br className="hidden xs:inline" />
-              <span className="text-zinc-400 font-medium">
-                {" "}{heroHeading2}
-              </span>
-            </h1>
-
-            {/* Hero Subtitle */}
-            <p className="max-w-2xl mx-auto text-xs sm:text-sm md:text-base text-zinc-400 leading-relaxed font-normal px-2">
-              {heroDesc}
-            </p>
-
-            {/* Action Buttons (Strictly Shadcn Style: responsive on all screens) */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 pt-2 max-w-xs sm:max-w-none mx-auto w-full">
-              <Link
-                href="/register"
-                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-white text-zinc-950 font-semibold text-xs sm:text-sm hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
-              >
-                <span>Register as a Rider</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/login"
-                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-xs sm:text-sm transition-colors flex items-center justify-center whitespace-nowrap"
-              >
-                Rider Sign In
-              </Link>
-            </div>
-
-            {/* Quick Stat Cards (Controlled by Admin with Toggle On/Off) */}
+            {/* Quick Stat Cards (Anchored cleanly at the bottom of the first fold) */}
             {cardsToDisplay.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 pt-8 sm:pt-12 max-w-4xl mx-auto w-full">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 pt-6 sm:pt-10 max-w-4xl mx-auto w-full pb-2">
                 {cardsToDisplay.map((stat) => (
                   <div
                     key={stat.key}
