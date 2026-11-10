@@ -107,42 +107,42 @@ export default function LandingPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-14 pb-20 sm:pt-24 sm:pb-28">
+        <section className="relative overflow-hidden pt-8 pb-14 sm:pt-20 sm:pb-24">
           {/* Single clean subtle monochrome gradient */}
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] bg-white/[0.025] blur-[140px] pointer-events-none rounded-full" />
 
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-5 sm:space-y-6">
             {/* Top Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 text-xs font-medium">
-              <Sparkles className="h-3.5 w-3.5 text-zinc-400" />
-              <span>{heroBadge}</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 text-[11px] sm:text-xs font-medium">
+              <Sparkles className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+              <span className="truncate max-w-[280px] sm:max-w-none">{heroBadge}</span>
             </div>
 
             {/* Hero Heading */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.12]">
-              {heroHeading1} <br />
+            <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.14]">
+              {heroHeading1} <br className="hidden xs:inline" />
               <span className="text-zinc-400 font-medium">
-                {heroHeading2}
+                {" "}{heroHeading2}
               </span>
             </h1>
 
             {/* Hero Subtitle */}
-            <p className="max-w-2xl mx-auto text-sm sm:text-base text-zinc-400 leading-relaxed font-normal">
+            <p className="max-w-2xl mx-auto text-xs sm:text-sm md:text-base text-zinc-400 leading-relaxed font-normal px-2">
               {heroDesc}
             </p>
 
-            {/* Action Buttons (Strictly Shadcn Style: no heavy neon glow) */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+            {/* Action Buttons (Strictly Shadcn Style: responsive on all screens) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 pt-2 max-w-xs sm:max-w-none mx-auto w-full">
               <Link
                 href="/register"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white text-zinc-950 font-semibold text-sm hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-white text-zinc-950 font-semibold text-xs sm:text-sm hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
               >
                 <span>Register as a Rider</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/login"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-sm transition-colors flex items-center justify-center"
+                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-xs sm:text-sm transition-colors flex items-center justify-center whitespace-nowrap"
               >
                 Rider Sign In
               </Link>
@@ -150,24 +150,19 @@ export default function LandingPage() {
 
             {/* Quick Stat Cards (Controlled by Admin with Toggle On/Off) */}
             {cardsToDisplay.length > 0 && (
-              <div
-                className={`grid grid-cols-2 sm:grid-cols-${Math.min(
-                  cardsToDisplay.length,
-                  4
-                )} gap-3 pt-12 max-w-3xl mx-auto`}
-              >
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 pt-8 sm:pt-12 max-w-4xl mx-auto w-full">
                 {cardsToDisplay.map((stat) => (
                   <div
                     key={stat.key}
-                    className="p-4 rounded-2xl text-left bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl"
+                    className="p-3 sm:p-4 rounded-xl sm:rounded-2xl text-left bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl transition-all"
                   >
-                    <div className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                    <div className="text-base sm:text-xl font-bold text-white tracking-tight truncate">
                       {stat.value}
                     </div>
-                    <div className="text-xs font-medium text-zinc-300 mt-0.5">
+                    <div className="text-[11px] sm:text-xs font-medium text-zinc-300 mt-0.5 truncate">
                       {stat.label}
                     </div>
-                    <div className="text-[11px] text-zinc-500 mt-1">
+                    <div className="text-[10px] sm:text-[11px] text-zinc-500 mt-0.5 line-clamp-1">
                       {stat.desc}
                     </div>
                   </div>

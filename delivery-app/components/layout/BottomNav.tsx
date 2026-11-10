@@ -32,8 +32,8 @@ export function BottomNav({ hasActiveDelivery = false, offersCount = 0 }: Bottom
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#07070a]/90 backdrop-blur-xl border-t border-white/[0.08] pb-safe shadow-2xl">
-      <div className="grid grid-cols-5 h-16 items-center px-1">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#07070a]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-2xl pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]">
+      <div className="grid grid-cols-5 h-14 sm:h-16 items-center px-1">
         {items.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;

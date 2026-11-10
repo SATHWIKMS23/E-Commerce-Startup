@@ -91,31 +91,34 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-[#07070a]/90 backdrop-blur-md border-b border-white/[0.08]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand Logo & Title (Synced with Admin) */}
-        <Link href={rider ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
+        {/* Brand Logo & Title (Synced with Admin, Responsive on all devices) */}
+        <Link
+          href={rider ? "/dashboard" : "/"}
+          className="flex items-center gap-2 sm:gap-2.5 group shrink-0 min-w-0"
+        >
           {hasValidLogo ? (
             <img
               src={branding.brandLogoUrl!}
               alt={branding.brandName}
-              className="h-8 w-8 object-contain rounded-lg"
+              className="h-7 w-7 sm:h-8 sm:w-8 object-contain rounded-lg shrink-0"
               onError={() => setLogoError(true)}
             />
           ) : (
-            <div className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white">
-              <Truck className="h-4 w-4" />
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0">
+              <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           )}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm tracking-tight text-white group-hover:text-white/90 transition-colors">
+              <span className="font-bold text-xs sm:text-sm tracking-tight text-white group-hover:text-white/90 transition-colors truncate max-w-[120px] sm:max-w-none">
                 {branding.brandName}
               </span>
-              <span className="text-[10px] font-medium text-white/50 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.03]">
+              <span className="hidden xs:inline-flex text-[9px] sm:text-[10px] font-medium text-white/50 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.03] shrink-0">
                 Delivery
               </span>
             </div>
-            <span className="text-[10px] text-white/40 block font-mono -mt-0.5">
+            <span className="hidden md:block text-[10px] text-white/40 font-mono -mt-0.5 truncate">
               {branding.activeCity} Fleet
             </span>
           </div>
@@ -144,7 +147,7 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
         )}
 
         {/* Right Action Controls */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {rider ? (
             <>
               {/* Online/Offline Toggle Button */}
@@ -188,18 +191,19 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <Link
                 href="/login"
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:text-white transition-colors"
+                className="px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:text-white transition-colors whitespace-nowrap"
               >
                 Log In
               </Link>
               <Link
                 href="/register"
-                className="px-3.5 py-1.5 rounded-lg bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm"
+                className="px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm whitespace-nowrap shrink-0 flex items-center justify-center"
               >
-                Become a Rider
+                <span className="hidden xs:inline">Become a Rider</span>
+                <span className="xs:hidden">Join Fleet</span>
               </Link>
             </div>
           )}

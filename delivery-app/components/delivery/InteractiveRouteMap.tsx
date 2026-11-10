@@ -107,7 +107,7 @@ export function InteractiveRouteMap({
           href={defaultNavUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold shadow-sm transition-all cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold shadow-sm transition-all cursor-pointer w-full sm:w-auto shrink-0 whitespace-nowrap"
         >
           <Navigation className="h-3.5 w-3.5" />
           <span>Open Google Navigation</span>

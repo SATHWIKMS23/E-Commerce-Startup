@@ -202,7 +202,7 @@ export default function RegisterPage() {
                     Personal Information
                   </h3>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-medium text-zinc-400 block mb-1">
                         First Name *
@@ -307,7 +307,7 @@ export default function RegisterPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-medium text-zinc-400 block mb-1">
                         Emergency Contact Name
@@ -349,7 +349,7 @@ export default function RegisterPage() {
                     <label className="text-[11px] font-medium text-zinc-400 block mb-1">
                       Select Vehicle Type *
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
                       {[
                         { type: "BICYCLE", label: "Bicycle (No license needed)" },
                         { type: "MOTORCYCLE", label: "Motorcycle / Bike" },

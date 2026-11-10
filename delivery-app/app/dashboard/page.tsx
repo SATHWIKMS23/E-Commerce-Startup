@@ -217,9 +217,9 @@ export default function DashboardPage() {
         )}
 
         {/* Main Status & Toggle Card */}
-        <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <div className="space-y-2">
+        <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
+            <div className="space-y-1.5 sm:space-y-2">
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                   Current Status
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-white">
                 {rider?.isAvailable ? (
                   <span>Online & Ready to Deliver</span>
                 ) : (
@@ -246,11 +246,11 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center w-full sm:w-auto">
               <button
                 onClick={handleToggleOnline}
                 disabled={togglingStatus || !isApproved}
-                className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
                   rider?.isAvailable
                     ? "bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/10"
                     : isApproved
@@ -348,57 +348,57 @@ export default function DashboardPage() {
         )}
 
         {/* Metric Cards Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {/* Today Earnings */}
-          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider">Today&apos;s Earnings</span>
-              <TrendingUp className="w-4 h-4 text-zinc-300" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-xl sm:rounded-2xl p-3.5 sm:p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider truncate">Today&apos;s Earnings</span>
+              <TrendingUp className="w-4 h-4 text-zinc-300 shrink-0" />
             </div>
-            <p className="text-2xl font-bold tracking-tight text-white">
+            <p className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">
               ₹{((summary?.todayEarnings ?? 0) / 100).toFixed(2)}
             </p>
-            <p className="text-[11px] text-zinc-500 mt-1">Paid directly to bank</p>
+            <p className="text-[10px] sm:text-[11px] text-zinc-500 mt-0.5 sm:mt-1 truncate">Paid directly to bank</p>
           </div>
 
           {/* Today Deliveries */}
-          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider">Completed Today</span>
-              <CheckCircle2 className="w-4 h-4 text-zinc-300" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-xl sm:rounded-2xl p-3.5 sm:p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider truncate">Completed Today</span>
+              <CheckCircle2 className="w-4 h-4 text-zinc-300 shrink-0" />
             </div>
-            <p className="text-2xl font-bold tracking-tight text-white">
+            <p className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">
               {summary?.todayCompletedCount ?? 0}
             </p>
-            <p className="text-[11px] text-zinc-500 mt-1">
+            <p className="text-[10px] sm:text-[11px] text-zinc-500 mt-0.5 sm:mt-1 truncate">
               Total lifetime: {summary?.totalCompletedCount ?? 0}
             </p>
           </div>
 
           {/* Rating */}
-          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider">Rating</span>
-              <Star className="w-4 h-4 text-zinc-300 fill-zinc-300" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-xl sm:rounded-2xl p-3.5 sm:p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider truncate">Rating</span>
+              <Star className="w-4 h-4 text-zinc-300 fill-zinc-300 shrink-0" />
             </div>
-            <p className="text-2xl font-bold tracking-tight text-white">
+            <p className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">
               {rider?.ratingAverage ? Number(rider.ratingAverage).toFixed(1) : "5.0"}
             </p>
-            <p className="text-[11px] text-zinc-500 mt-1">
+            <p className="text-[10px] sm:text-[11px] text-zinc-500 mt-0.5 sm:mt-1 truncate">
               Based on {rider?.ratingCount ?? 0} reviews
             </p>
           </div>
 
           {/* Vehicle Info */}
-          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider">Vehicle</span>
-              <Bike className="w-4 h-4 text-zinc-300" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-xl sm:rounded-2xl p-3.5 sm:p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider truncate">Vehicle</span>
+              <Bike className="w-4 h-4 text-zinc-300 shrink-0" />
             </div>
-            <p className="text-lg font-bold text-white capitalize">
+            <p className="text-base sm:text-lg font-bold text-white capitalize truncate">
               {rider?.vehicleType?.replace(/_/g, " ") || "Two Wheeler"}
             </p>
-            <p className="text-[11px] text-zinc-400 mt-1">Mysuru Fleet</p>
+            <p className="text-[10px] sm:text-[11px] text-zinc-400 mt-0.5 sm:mt-1 truncate">Mysuru Fleet</p>
           </div>
         </div>
 
