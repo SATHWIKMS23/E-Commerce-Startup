@@ -3,7 +3,7 @@ ALTER TABLE "seller_orders" ADD COLUMN "deliveryAssignedAt" TIMESTAMP(3),
     ADD COLUMN "deliveryAssignedBy" VARCHAR(50);
 
 -- AlterTable: Drop deliveryMethod from products
-ALTER TABLE "products" DROP COLUMN IF EXISTS "deliveryMethod";
+ALTER TABLE "products" DROP COLUMN "deliveryMethod";
 
 -- DropEnum: Remove ProductDeliveryMethod enum
-DROP TYPE IF EXISTS "ProductDeliveryMethod";
+DROP TYPE "ProductDeliveryMethod";

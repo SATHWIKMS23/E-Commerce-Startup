@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 import { Navbar } from "@/components/layout/Navbar";
 import { apiClient } from "@/lib/apiClient";
 import {
@@ -15,13 +16,19 @@ import {
   ArrowRight,
   ArrowLeft,
   Lock,
+  Sparkles,
 } from "lucide-react";
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
   const [operationalDistricts, setOperationalDistricts] = useState<
     Array<{ id: string; name: string; state: string }>
   >([]);
@@ -59,7 +66,7 @@ export default function RegisterPage() {
   });
 
   // Fetch operational districts enabled by admin in DB
-  React.useEffect(() => {
+  useEffect(() => {
     apiClient
       .get("/api/delivery/districts")
       .then((res) => {
@@ -73,6 +80,37 @@ export default function RegisterPage() {
       .catch(() => {});
   }, []);
 
+  // Pre-fill profile if user is authenticated via Google / NextAuth session
+  useEffect(() => {
+    const rawRider = localStorage.getItem("delivery_partner_rider");
+    const storedRider = rawRider ? JSON.parse(rawRider) : (session as any)?.rider;
+
+    if (storedRider || session?.user) {
+      setIsGoogleUser(true);
+      const email = storedRider?.email || session?.user?.email || "";
+      const fullName = session?.user?.name || `${storedRider?.firstName || ""} ${storedRider?.lastName || ""}`.trim();
+      const parts = fullName.split(" ");
+      const firstName = storedRider?.firstName || parts[0] || "";
+      const lastName = storedRider?.lastName || parts.slice(1).join(" ") || "";
+
+      setForm((prev) => ({
+        ...prev,
+        email: email || prev.email,
+        firstName: firstName || prev.firstName,
+        lastName: lastName || prev.lastName,
+        phone: storedRider?.phone?.startsWith("G_") ? "" : (storedRider?.phone || prev.phone),
+        city: storedRider?.city || prev.city,
+        vehicleType: storedRider?.vehicleType || prev.vehicleType,
+        vehicleNumber: storedRider?.vehicleNumber || prev.vehicleNumber,
+        licenseNumber: storedRider?.licenseNumber || prev.licenseNumber,
+        bankAccountName: storedRider?.bankAccountName || prev.bankAccountName,
+        bankAccountNumber: storedRider?.bankAccountNumber || prev.bankAccountNumber,
+        bankIfsc: storedRider?.bankIfsc || prev.bankIfsc,
+        upiId: storedRider?.upiId || prev.upiId,
+      }));
+    }
+  }, [session, sessionStatus]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -80,10 +118,25 @@ export default function RegisterPage() {
     setError(null);
   };
 
+  const handleGoogleSignup = async () => {
+    try {
+      setGoogleLoading(true);
+      setError(null);
+      await signIn("google", { callbackUrl: "/register?step=details" });
+    } catch (err: any) {
+      setError(err?.message || "Google registration failed. Please try again.");
+      setGoogleLoading(false);
+    }
+  };
+
   const validateStep = () => {
     if (step === 1) {
-      if (!form.firstName || !form.lastName || !form.phone || !form.email || !form.password) {
+      if (!form.firstName || !form.lastName || !form.phone || !form.email || (!isGoogleUser && !form.password)) {
         setError("Please complete all required personal details.");
+        return false;
+      }
+      if (form.phone.trim().length < 10 || form.phone.startsWith("G_")) {
+        setError("Please enter a valid 10-digit mobile phone number.");
         return false;
       }
       if (!form.city) {
@@ -133,13 +186,28 @@ export default function RegisterPage() {
     setLoading(true);
     setError(null);
 
+    const token = localStorage.getItem("delivery_partner_token") || (session as any)?.backendToken;
+
     try {
-      const res = await apiClient.post("/api/delivery/auth/register", form);
-      if (res.data.success) {
-        if (res.data.token) {
-          localStorage.setItem("delivery_partner_token", res.data.token);
+      if (token && isGoogleUser) {
+        // Update existing Google-authenticated provisional rider with verification details
+        const res = await apiClient.put("/api/delivery/riders/me", form);
+        if (res.data?.rider) {
+          localStorage.setItem("delivery_partner_rider", JSON.stringify(res.data.rider));
         }
         router.push("/dashboard?registered=true");
+      } else {
+        // Standard full registration
+        const res = await apiClient.post("/api/delivery/auth/register", form);
+        if (res.data.success) {
+          if (res.data.token) {
+            localStorage.setItem("delivery_partner_token", res.data.token);
+          }
+          if (res.data.rider) {
+            localStorage.setItem("delivery_partner_rider", JSON.stringify(res.data.rider));
+          }
+          router.push("/dashboard?registered=true");
+        }
       }
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || "Registration failed");
@@ -153,7 +221,7 @@ export default function RegisterPage() {
       <Navbar />
 
       <main className="flex-1 py-10 px-4 sm:px-6 relative overflow-hidden">
-        {/* Subtle monochrome ambient glow matching customer & seller apps */}
+        {/* Subtle monochrome ambient glow */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[520px] h-[520px] bg-white/[0.025] blur-[140px] pointer-events-none rounded-full" />
 
         <div className="max-w-xl mx-auto space-y-6 relative z-10">
@@ -167,7 +235,58 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Stepper Indicator (Clean Shadcn Monochrome) */}
+          {/* Google Sign In Callout (If not already signed in) */}
+          {!isGoogleUser ? (
+            <div className="p-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-center sm:text-left">
+                <span className="text-xs font-semibold text-white block">Speed up with Google</span>
+                <span className="text-[11px] text-zinc-400 block">
+                  Sign in with Google first, then submit vehicle details for verification
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleGoogleSignup}
+                disabled={googleLoading}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/10 text-white text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+              >
+                {googleLoading ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                )}
+                <span>Continue with Google</span>
+              </button>
+            </div>
+          ) : (
+            <div className="p-3 px-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-300 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  Signed in as <strong>{form.email}</strong> via Google. Please submit remaining details below for verification.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Stepper Indicator */}
           <div className="flex items-center justify-between relative px-2">
             {[
               { num: 1, label: "Personal", icon: User },
@@ -208,7 +327,7 @@ export default function RegisterPage() {
             })}
           </div>
 
-          {/* Form Card (Glassmorphism & Shadcn Border) */}
+          {/* Form Card */}
           <div className="p-6 sm:p-8 rounded-3xl border border-white/[0.08] bg-white/[0.025] backdrop-blur-xl shadow-2xl space-y-6">
             {error && (
               <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
@@ -279,28 +398,31 @@ export default function RegisterPage() {
                         type="email"
                         name="email"
                         required
+                        disabled={isGoogleUser}
                         value={form.email}
                         onChange={handleChange}
                         placeholder="name@example.com"
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/20"
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/20 disabled:opacity-60"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-medium text-zinc-400 block mb-1">
-                      Create Password *
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      required
-                      value={form.password}
-                      onChange={handleChange}
-                      placeholder="Minimum 6 characters"
-                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/20"
-                    />
-                  </div>
+                  {!isGoogleUser && (
+                    <div>
+                      <label className="text-[11px] font-medium text-zinc-400 block mb-1">
+                        Create Password *
+                      </label>
+                      <input
+                        type="password"
+                        name="password"
+                        required
+                        value={form.password}
+                        onChange={handleChange}
+                        placeholder="Minimum 6 characters"
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/20"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="text-[11px] font-medium text-zinc-400 block mb-1">
@@ -338,11 +460,6 @@ export default function RegisterPage() {
                         </option>
                       ))}
                     </select>
-                    {operationalDistricts.length === 0 && (
-                      <p className="text-[10px] text-amber-400/80 mt-1">
-                        Checking operational districts enabled by admin in the database...
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -598,7 +715,7 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              {/* Navigation Controls (Strictly Shadcn Style) */}
+              {/* Navigation Controls */}
               <div className="flex items-center justify-between pt-4 border-t border-white/[0.08]">
                 {step > 1 ? (
                   <button
@@ -643,5 +760,19 @@ export default function RegisterPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#07070a] flex items-center justify-center text-white">
+          <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }

@@ -311,6 +311,121 @@ export class RiderAuthService {
     return { rider: this.sanitizeRiderProfile(rider), token };
   }
 
+  static async updateProfile(riderId: string, input: Partial<RiderRegistrationInput>) {
+    const existing = await prisma.deliveryPartner.findUnique({
+      where: { id: riderId },
+    });
+    if (!existing) {
+      throw new Error("Rider not found.");
+    }
+
+    if (input.phone && input.phone.trim() !== existing.phone) {
+      const duplicatePhone = await prisma.deliveryPartner.findUnique({
+        where: { phone: input.phone.trim() },
+      });
+      if (duplicatePhone && duplicatePhone.id !== riderId) {
+        throw new Error("A rider with this phone number already exists.");
+      }
+    }
+
+    let validatedDistrict: string | undefined = undefined;
+    if (input.city?.trim()) {
+      const activeDistrict = await prisma.city.findFirst({
+        where: {
+          name: { equals: input.city.trim(), mode: "insensitive" },
+          isActive: true,
+        },
+      });
+      if (!activeDistrict) {
+        throw new Error(
+          `Delivery operations are not currently enabled for district '${input.city}'. Please select an admin-enabled district.`
+        );
+      }
+      validatedDistrict = activeDistrict.name;
+    }
+
+    if (input.dateOfBirth) {
+      const age = this.calculateAge(new Date(input.dateOfBirth));
+      if (age < 18) {
+        throw new Error("Delivery partners must be at least 18 years old.");
+      }
+    }
+
+    const updateData: any = {};
+    if (input.firstName?.trim()) updateData.firstName = input.firstName.trim();
+    if (input.lastName?.trim()) updateData.lastName = input.lastName.trim();
+    if (input.phone?.trim()) updateData.phone = input.phone.trim();
+    if (input.dateOfBirth) updateData.dateOfBirth = new Date(input.dateOfBirth);
+    if (input.residentialAddress !== undefined) updateData.residentialAddress = input.residentialAddress || null;
+    if (input.emergencyContactName !== undefined) updateData.emergencyContactName = input.emergencyContactName || null;
+    if (input.emergencyContactPhone !== undefined) updateData.emergencyContactPhone = input.emergencyContactPhone || null;
+    if (validatedDistrict) updateData.city = validatedDistrict;
+    if (input.vehicleType) updateData.vehicleType = input.vehicleType;
+    if (input.vehicleNumber !== undefined) updateData.vehicleNumber = input.vehicleNumber || null;
+    if (input.licenseNumber !== undefined) updateData.licenseNumber = input.licenseNumber || null;
+    if (input.rcNumber !== undefined) updateData.rcNumber = input.rcNumber || null;
+    if (input.insuranceNumber !== undefined) updateData.insuranceNumber = input.insuranceNumber || null;
+    if (input.vehiclePhotoUrl !== undefined) updateData.vehiclePhotoUrl = input.vehiclePhotoUrl || null;
+    if (input.bankAccountName !== undefined) updateData.bankAccountName = input.bankAccountName || null;
+    if (input.bankAccountNumber !== undefined) updateData.bankAccountNumber = input.bankAccountNumber || null;
+    if (input.bankIfsc !== undefined) updateData.bankIfsc = input.bankIfsc || null;
+    if (input.upiId !== undefined) updateData.upiId = input.upiId || null;
+    if (input.aadhaarNumber?.trim()) {
+      updateData.aadhaarNumberMasked = this.maskAadhaar(input.aadhaarNumber.trim());
+    }
+
+    const updated = await prisma.deliveryPartner.update({
+      where: { id: riderId },
+      data: updateData,
+    });
+
+    const documentsToCreate: any[] = [];
+    if (input.aadhaarDocUrl) {
+      documentsToCreate.push({
+        deliveryPartnerId: riderId,
+        documentType: "AADHAAR",
+        documentNumber: updateData.aadhaarNumberMasked || existing.aadhaarNumberMasked || undefined,
+        documentUrl: input.aadhaarDocUrl,
+        status: "PENDING",
+      });
+    }
+    if (input.drivingLicenseDocUrl) {
+      documentsToCreate.push({
+        deliveryPartnerId: riderId,
+        documentType: "DRIVING_LICENSE",
+        documentNumber: input.licenseNumber || existing.licenseNumber || undefined,
+        documentUrl: input.drivingLicenseDocUrl,
+        status: "PENDING",
+      });
+    }
+    if (input.rcDocUrl) {
+      documentsToCreate.push({
+        deliveryPartnerId: riderId,
+        documentType: "VEHICLE_RC",
+        documentNumber: input.rcNumber || existing.rcNumber || undefined,
+        documentUrl: input.rcDocUrl,
+        status: "PENDING",
+      });
+    }
+    if (input.insuranceDocUrl) {
+      documentsToCreate.push({
+        deliveryPartnerId: riderId,
+        documentType: "INSURANCE",
+        documentNumber: input.insuranceNumber || existing.insuranceNumber || undefined,
+        documentUrl: input.insuranceDocUrl,
+        status: "PENDING",
+      });
+    }
+
+    if (documentsToCreate.length > 0) {
+      await prisma.riderDocument.createMany({
+        data: documentsToCreate,
+      });
+    }
+
+    return this.sanitizeRiderProfile(updated);
+  }
+
   static async getMe(riderId: string) {
     const rider = await prisma.deliveryPartner.findUnique({
       where: { id: riderId },

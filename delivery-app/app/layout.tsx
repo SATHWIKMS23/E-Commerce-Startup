@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 
 export const metadata: Metadata = {
   title: "AtlasBasket Delivery — Partner Network",
@@ -24,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-[#07070a] text-zinc-100 min-h-screen antialiased flex flex-col selection:bg-white/20 selection:text-white">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

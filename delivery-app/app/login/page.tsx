@@ -1,17 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 import { apiClient } from "@/lib/apiClient";
 import { Bike, ShieldCheck, Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check URL error params from NextAuth or Google OAuth
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      if (errorParam === "OAuthSignin" || errorParam === "OAuthCallback") {
+        setError("Unable to complete Google sign-in. Please ensure Google OAuth credentials are configured.");
+      } else if (errorParam === "GoogleAuthFailed") {
+        setError("Google authentication was unsuccessful. Please check your connection and try again.");
+      } else {
+        setError(decodeURIComponent(errorParam));
+      }
+    }
+  }, [searchParams]);
+
+  // If user is already authenticated via session or token, route them appropriately
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && (session as any)?.rider) {
+      const rider = (session as any).rider;
+      // If provisional rider account without vehicle or phone completed, prompt them to finish verification details
+      if (!rider.vehicleType || rider.phone?.startsWith("G_")) {
+        router.push("/register?step=details");
+      } else {
+        router.push("/dashboard");
+      }
+    }
+  }, [session, sessionStatus, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +63,21 @@ export default function LoginPage() {
         localStorage.setItem("delivery_partner_rider", JSON.stringify(res.data.rider));
       }
 
-      router.push("/dashboard");
+      // Sync with NextAuth session in background
+      if (res.data?.token && res.data?.rider) {
+        signIn("credentials", {
+          redirect: false,
+          token: res.data.token,
+          riderData: JSON.stringify(res.data.rider),
+        }).catch(() => {});
+      }
+
+      const rider = res.data?.rider;
+      if (!rider?.vehicleType || rider?.phone?.startsWith("G_")) {
+        router.push("/register?step=details");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       setError(
         err.response?.data?.message ||
@@ -42,10 +88,15 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    setError(
-      "Google OAuth integration: please sign in with your verified email and password, or contact admin to link your account."
-    );
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleLoading(true);
+      setError(null);
+      await signIn("google", { callbackUrl: "/dashboard" });
+    } catch (err: any) {
+      setError(err?.message || "Google sign in failed. Please try again.");
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -72,7 +123,7 @@ export default function LoginPage() {
           Sign in to your rider account
         </h2>
         <p className="mt-1 text-center text-xs text-zinc-400">
-          Deliver in Mysuru and earn daily with weekly payouts
+          Deliver locally and earn directly with fast weekly payouts
         </p>
       </div>
 
@@ -84,6 +135,46 @@ export default function LoginPage() {
               <span>{error}</span>
             </div>
           )}
+
+          {/* Google OAuth Login Button */}
+          <button
+            onClick={handleGoogleLogin}
+            disabled={googleLoading || loading}
+            type="button"
+            className="w-full py-2.5 px-4 bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 rounded-xl text-zinc-200 text-xs font-medium transition-colors flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+          >
+            {googleLoading ? (
+              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+            )}
+            <span>{googleLoading ? "Connecting with Google..." : "Sign in with Google"}</span>
+          </button>
+
+          <div className="relative flex items-center py-1">
+            <div className="flex-grow border-t border-white/[0.08]" />
+            <span className="flex-shrink mx-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+              Or with email
+            </span>
+            <div className="flex-grow border-t border-white/[0.08]" />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -126,7 +217,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="w-full mt-2 py-3 px-4 bg-white text-zinc-950 hover:bg-zinc-200 font-semibold rounded-xl text-xs shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               {loading ? (
@@ -139,40 +230,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          <div className="relative flex items-center py-1">
-            <div className="flex-grow border-t border-white/[0.08]" />
-            <span className="flex-shrink mx-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-              Or
-            </span>
-            <div className="flex-grow border-t border-white/[0.08]" />
-          </div>
-
-          <button
-            onClick={handleGoogleLogin}
-            type="button"
-            className="w-full py-2.5 px-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 rounded-xl text-zinc-200 text-xs font-medium transition-colors flex items-center justify-center gap-2.5 cursor-pointer"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            Sign in with Google
-          </button>
 
           <div className="pt-2 text-center">
             <p className="text-xs text-zinc-400">
@@ -200,5 +257,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#07070a] flex items-center justify-center text-white">
+          <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

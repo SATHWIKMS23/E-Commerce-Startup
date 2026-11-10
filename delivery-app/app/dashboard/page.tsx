@@ -180,6 +180,28 @@ export default function DashboardPage() {
       <Navbar rider={rider} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 space-y-6 relative z-10">
+        {/* Profile Incomplete Action Banner */}
+        {(!rider?.vehicleType || rider?.phone?.startsWith("G_")) && (
+          <div className="p-5 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sky-300">
+            <div className="flex items-start gap-3.5">
+              <Bike className="w-5 h-5 flex-shrink-0 text-sky-400 mt-0.5" />
+              <div className="space-y-0.5">
+                <h3 className="font-semibold text-white text-xs sm:text-sm">Action Required: Submit Verification Details</h3>
+                <p className="text-[11px] sm:text-xs text-sky-200/80 leading-relaxed">
+                  Your Google account is connected. Please submit your phone number, vehicle type, and identity documents to complete verification.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/register?step=details"
+              className="px-4 py-2 rounded-xl bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors shrink-0 text-center flex items-center justify-center gap-1.5"
+            >
+              <span>Complete Details</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        )}
+
         {/* Verification Alert Banner */}
         {!isApproved && (
           <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-4 text-amber-300">

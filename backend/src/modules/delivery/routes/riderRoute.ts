@@ -6,6 +6,7 @@ import {
   googleLoginRider,
   logoutRider,
   getMe,
+  updateProfile,
   getPublicProfile,
 } from "../controllers/riderAuthController.js";
 import {
@@ -159,6 +160,8 @@ router.get("/api/delivery/settings/public", async (req, res) => {
 
 // ─── Authenticated Rider Endpoints ─────────────────────────────────────────────
 router.get("/api/delivery/riders/me", deliveryPartnerAuth, getMe);
+router.put("/api/delivery/riders/me", deliveryPartnerAuth, updateProfile);
+router.patch("/api/delivery/riders/me", deliveryPartnerAuth, updateProfile);
 router.get("/api/delivery/dashboard", deliveryPartnerAuth, getDashboard);
 router.post("/api/delivery/availability", deliveryPartnerAuth, setAvailability);
 router.post("/api/delivery/location", deliveryPartnerAuth, updateLocation);
