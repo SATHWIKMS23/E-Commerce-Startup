@@ -22,7 +22,7 @@ model DeliveryTimelineEvent {
   id          String   @id @default(cuid())
   deliveryId  String
   status      String
-  actorType   String   // ADMIN, RIDER, SELLER, CUSTOMER, SYSTEM
+  actorType   String // ADMIN, RIDER, SELLER, CUSTOMER, SYSTEM
   actorId     String?
   actorName   String?
   title       String
@@ -40,10 +40,10 @@ model DeliveryRating {
   id                String          @id @default(cuid())
   deliveryId        String
   deliveryPartnerId String
-  raterType         String          // CUSTOMER, SELLER, EXTERNAL_SHOP
+  raterType         String // CUSTOMER, SELLER, EXTERNAL_SHOP
   raterId           String
   raterName         String?
-  rating            Int             // 1 to 5
+  rating            Int // 1 to 5
   review            String?
   tags              String[]        @default([])
   createdAt         DateTime        @default(now())
@@ -60,16 +60,16 @@ model DeliveryIncident {
   id                    String          @id @default(cuid())
   deliveryId            String
   deliveryPartnerId     String
-  reporterType          String          // CUSTOMER, SELLER, EXTERNAL_SHOP, ADMIN
+  reporterType          String // CUSTOMER, SELLER, EXTERNAL_SHOP, ADMIN
   reporterId            String
   reporterName          String?
-  incidentType          String          // ITEM_DAMAGED, WRONG_DELIVERY, RUDE_BEHAVIOR, LATE, THEFT, OTHER
+  incidentType          String // ITEM_DAMAGED, WRONG_DELIVERY, RUDE_BEHAVIOR, LATE, THEFT, OTHER
   description           String
   evidenceUrls          String[]        @default([])
   riderResponse         String?
   riderRespondedAt      DateTime?
   status                String          @default("REPORTED") // REPORTED, UNDER_INVESTIGATION, CONFIRMED, DISMISSED, APPEALED
-  adminDecision         String?         // PENALTY_APPLIED, WARNING_ISSUED, DISMISSED
+  adminDecision         String? // PENALTY_APPLIED, WARNING_ISSUED, DISMISSED
   adminNotes            String?
   penaltyPercentage     Decimal?        @db.Decimal(5, 2)
   payoutAdjustmentPaise Int?
@@ -97,7 +97,7 @@ model RiderStrike {
   issuedByAdminId        String
   isAppealed             Boolean           @default(false)
   appealNotes            String?
-  appealStatus           String?           // PENDING, APPROVED, REJECTED
+  appealStatus           String? // PENDING, APPROVED, REJECTED
   appealDecidedByAdminId String?
   appealDecidedAt        DateTime?
   isRevoked              Boolean           @default(false)
@@ -158,34 +158,34 @@ model DeliveryGlobalSetting {
   isDeliveryServiceEnabled     Boolean  @default(true)
 
   // Landing Page Hero & Card Controls (Admin Synced)
-  heroBadgeText                String?  @default("Now Launching Across Mysuru City")
-  heroHeadingLine1             String?  @default("Deliver locally.")
-  heroHeadingLine2             String?  @default("Earn directly with every trip.")
-  heroDescription              String?  @default("Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.")
+  heroBadgeText    String? @default("Now Launching Across Mysuru City")
+  heroHeadingLine1 String? @default("Deliver locally.")
+  heroHeadingLine2 String? @default("Earn directly with every trip.")
+  heroDescription  String? @default("Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.")
 
   // 4 Landing Stat Cards: Controlled by Admin with Toggle On/Off & Value
-  showCardPayout               Boolean  @default(true)
-  cardPayoutValue              String   @default("~90%")
-  cardPayoutLabel              String   @default("Rider Payout")
-  cardPayoutDesc               String   @default("Direct earnings share")
+  showCardPayout  Boolean @default(true)
+  cardPayoutValue String  @default("~90%")
+  cardPayoutLabel String  @default("Rider Payout")
+  cardPayoutDesc  String  @default("Direct earnings share")
 
-  showCardCity                 Boolean  @default(true)
-  cardCityValue                String   @default("Mysuru")
-  cardCityLabel                String   @default("Active City")
-  cardCityDesc                 String   @default("Local delivery zones")
+  showCardCity  Boolean @default(true)
+  cardCityValue String  @default("Mysuru")
+  cardCityLabel String  @default("Active City")
+  cardCityDesc  String  @default("Local delivery zones")
 
-  showCardFee                  Boolean  @default(true)
-  cardFeeValue                 String   @default("₹0 Free")
-  cardFeeLabel                 String   @default("Registration Fee")
-  cardFeeDesc                  String   @default("No upfront fees")
+  showCardFee  Boolean @default(true)
+  cardFeeValue String  @default("₹0 Free")
+  cardFeeLabel String  @default("Registration Fee")
+  cardFeeDesc  String  @default("No upfront fees")
 
-  showCardVehicles             Boolean  @default(true)
-  cardVehiclesValue            String   @default("Bikes & EVs")
-  cardVehiclesLabel            String   @default("Vehicles Welcome")
-  cardVehiclesDesc             String   @default("Bicycles welcome")
+  showCardVehicles  Boolean @default(true)
+  cardVehiclesValue String  @default("Bikes & EVs")
+  cardVehiclesLabel String  @default("Vehicles Welcome")
+  cardVehiclesDesc  String  @default("Bicycles welcome")
 
-  updatedByAdminId             String?
-  updatedAt                    DateTime @updatedAt
+  updatedByAdminId String?
+  updatedAt        DateTime @updatedAt
 
   @@map("delivery_global_settings")
 }
@@ -231,7 +231,7 @@ model RiderPayout {
 model RiderDocument {
   id                String          @id @default(cuid())
   deliveryPartnerId String
-  documentType      String          // AADHAAR, DRIVING_LICENSE, VEHICLE_RC, INSURANCE, VEHICLE_PHOTO, PROFILE_PHOTO
+  documentType      String // AADHAAR, DRIVING_LICENSE, VEHICLE_RC, INSURANCE, VEHICLE_PHOTO, PROFILE_PHOTO
   documentNumber    String?
   documentUrl       String          @db.VarChar(2048)
   fileKey           String?
