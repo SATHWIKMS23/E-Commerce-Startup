@@ -163,7 +163,7 @@ export default function RegisterPage() {
               Rider Registration
             </h1>
             <p className="text-xs text-zinc-400">
-              Join the AtlasBasket local delivery fleet in your operational district
+              Deliver orders from local shops and earn with every trip
             </p>
           </div>
 

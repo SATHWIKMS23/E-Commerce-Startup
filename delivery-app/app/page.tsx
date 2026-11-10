@@ -129,8 +129,8 @@ export default function LandingPage() {
               </div>
 
               {/* Hero Heading */}
-              <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.14]">
-                {heroHeading1} <br className="hidden xs:inline" />
+              <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.14]">
+                {heroHeading1} <br className="hidden sm:inline" />
                 <span className="text-zinc-400 font-medium">
                   {" "}{heroHeading2}
                 </span>

@@ -165,8 +165,8 @@ export default function SupportPage() {
               <Headphones className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-sm sm:text-base font-bold text-white">AtlasBasket Dispatch Operations</h1>
-              <p className="text-xs text-zinc-400">Mysuru Rider Fleet Assistance & Priority Desk</p>
+              <h1 className="text-sm sm:text-base font-bold text-white">AtlasBasket Delivery Support</h1>
+              <p className="text-xs text-zinc-400">Rider Support & Priority Help Desk</p>
             </div>
           </div>
 
@@ -193,7 +193,7 @@ export default function SupportPage() {
                 <MessageSquare className="w-8 h-8 text-zinc-600 mx-auto" />
                 <p className="text-sm font-semibold text-white">How can we assist you today?</p>
                 <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                  Send a message below or tap one of the common topics. A Mysuru fleet manager is on standby.
+                  Send a message below or tap one of the common topics. A support specialist is on standby to help you.
                 </p>
               </div>
             ) : (

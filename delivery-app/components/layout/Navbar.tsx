@@ -111,18 +111,20 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-xs sm:text-sm tracking-tight text-white group-hover:text-white/90 transition-colors truncate max-w-[120px] sm:max-w-none">
+              <span className="font-bold text-xs sm:text-sm tracking-tight text-white group-hover:text-white/90 transition-colors truncate max-w-[140px] sm:max-w-none">
                 {branding.brandName}
               </span>
-              <span className="hidden xs:inline-flex text-[9px] sm:text-[10px] font-medium text-white/50 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.03] shrink-0">
-                Delivery
-              </span>
+              {!branding.brandName.toLowerCase().includes("delivery") && (
+                <span className="hidden sm:inline-flex text-[9px] sm:text-[10px] font-medium text-white/50 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.03] shrink-0">
+                  Delivery
+                </span>
+              )}
             </div>
             <span className="hidden md:block text-[10px] text-white/40 font-mono -mt-0.5 truncate">
               {branding.activeCities.length > 0
                 ? `${branding.activeCities.slice(0, 2).join(", ")}${
                     branding.activeCities.length > 2 ? ` +${branding.activeCities.length - 2}` : ""
-                  } Fleet`
+                  } Delivery`
                 : "Delivery Network"}
             </span>
           </div>
@@ -206,8 +208,8 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
                 href="/register"
                 className="px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm whitespace-nowrap shrink-0 flex items-center justify-center"
               >
-                <span className="hidden xs:inline">Become a Rider</span>
-                <span className="xs:hidden">Join Fleet</span>
+                <span className="hidden sm:inline">Become a Rider</span>
+                <span className="sm:hidden">Register</span>
               </Link>
             </div>
           )}

@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "AtlasBasket Delivery — Local Delivery Fleet",
+  title: "AtlasBasket Delivery — Partner Network",
   description:
-    "Deliver with AtlasBasket in Mysuru. Flexible hours, fair payouts, and real-time navigation.",
+    "Deliver with AtlasBasket. Flexible hours, fair payouts, and real-time navigation.",
 };
 
 export const viewport: Viewport = {
