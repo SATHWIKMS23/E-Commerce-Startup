@@ -61,16 +61,14 @@ export default function LandingPage() {
     };
   }, []);
 
-  const heroBadge = settings?.hero?.badge || "Now Launching Across Mysuru City";
+  const heroBadge = settings?.hero?.badge || "Local Delivery Network";
   const heroHeading1 = settings?.hero?.line1 || "Deliver locally.";
   const heroHeading2 = settings?.hero?.line2 || "Earn directly with every trip.";
   const heroDesc =
     settings?.hero?.description ||
-    "Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.";
+    "Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in admin-enabled operational districts. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.";
 
-  const activeCitiesList = settings?.activeCities?.length
-    ? settings.activeCities
-    : [settings?.activeCity || "Mysuru"];
+  const activeCitiesList = settings?.activeCities || [];
 
   // Configured Stat Cards (controlled by Admin with Toggle On/Off)
   const cardsConfig = settings?.cards;
@@ -83,9 +81,19 @@ export default function LandingPage() {
     },
     cardsConfig?.city?.show !== false && {
       key: "city",
-      value: cardsConfig?.city?.value || settings?.activeCity || "Mysuru",
-      label: cardsConfig?.city?.label || "Active City",
-      desc: cardsConfig?.city?.desc || `${activeCitiesList.join(", ")} zones`,
+      value:
+        cardsConfig?.city?.value ||
+        (activeCitiesList.length === 1
+          ? activeCitiesList[0]
+          : activeCitiesList.length > 1
+          ? `${activeCitiesList.length} Districts`
+          : "0 Districts"),
+      label: cardsConfig?.city?.label || "Active Coverage",
+      desc:
+        cardsConfig?.city?.desc ||
+        (activeCitiesList.length > 0
+          ? activeCitiesList.slice(0, 3).join(", ")
+          : "Admin-enabled zones"),
     },
     cardsConfig?.fee?.show !== false && {
       key: "fee",
@@ -216,30 +224,38 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Active Coverage Zones */}
+            {/* Active Coverage Zones (Strictly from Admin-Enabled Districts in Database) */}
             <div className="p-6 rounded-2xl bg-white/[0.025] border border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  Active Operational Zones
+                  Active Operational Zones ({activeCitiesList.length} Enabled Districts)
                 </span>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {activeCitiesList.map((city) => (
-                    <span
-                      key={city}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-xs font-medium text-white"
-                    >
-                      <MapPin className="h-3 w-3 text-zinc-400" />
-                      {city}
-                    </span>
-                  ))}
-                </div>
+                {activeCitiesList.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {activeCitiesList.map((city) => (
+                      <span
+                        key={city}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-xs font-medium text-white"
+                      >
+                        <MapPin className="h-3 w-3 text-zinc-400" />
+                        {city}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500 pt-1">
+                    No districts currently enabled by admin in the database.
+                  </p>
+                )}
               </div>
 
               <Link
                 href="/register"
                 className="px-5 py-2.5 rounded-xl bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors shrink-0 text-center"
               >
-                Apply in {activeCitiesList[0] || "Mysuru"}
+                {activeCitiesList.length > 0
+                  ? `Apply in ${activeCitiesList[0]}`
+                  : "Apply to Deliver"}
               </Link>
             </div>
           </div>
@@ -254,7 +270,11 @@ export default function LandingPage() {
               {settings?.brandName || "AtlasBasket Delivery"}
             </span>
             <span>•</span>
-            <span>{activeCitiesList.join(", ")} Fleet</span>
+            <span>
+              {activeCitiesList.length > 0
+                ? `${activeCitiesList.join(", ")} Network`
+                : "Delivery Network"}
+            </span>
           </div>
 
           <div className="flex items-center gap-4">

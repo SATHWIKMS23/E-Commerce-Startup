@@ -79,7 +79,7 @@ export function InteractiveRouteMap({
         {/* Floating live badge */}
         <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-3 py-1">
           <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-          <span className="text-[11px] font-medium text-white/90">Live Route • Mysuru</span>
+          <span className="text-[11px] font-medium text-white/90">Live Navigation Route</span>
         </div>
 
         {/* Speed / ETA pill */}

@@ -158,7 +158,7 @@ export default function OffersPage() {
             <div className="space-y-2">
               <h2 className="text-lg font-bold text-white">Searching for jobs near you...</h2>
               <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
-                Make sure you remain Online with your location enabled. When a seller confirms an order in Mysuru, it will pop up here with a 30-second countdown.
+                Make sure you remain Online with your location enabled. When an order requires delivery in your active operational district, it will pop up here with a 30-second countdown.
               </p>
             </div>
 

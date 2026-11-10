@@ -22,6 +22,9 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [operationalDistricts, setOperationalDistricts] = useState<
+    Array<{ id: string; name: string; state: string }>
+  >([]);
 
   // Form State
   const [form, setForm] = useState({
@@ -32,6 +35,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     dateOfBirth: "",
+    city: "",
     residentialAddress: "",
     emergencyContactName: "",
     emergencyContactPhone: "",
@@ -54,6 +58,21 @@ export default function RegisterPage() {
     upiId: "",
   });
 
+  // Fetch operational districts enabled by admin in DB
+  React.useEffect(() => {
+    apiClient
+      .get("/api/delivery/districts")
+      .then((res) => {
+        if (res.data?.districts) {
+          setOperationalDistricts(res.data.districts);
+          if (res.data.districts.length === 1) {
+            setForm((prev) => ({ ...prev, city: res.data.districts[0].name }));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -65,6 +84,10 @@ export default function RegisterPage() {
     if (step === 1) {
       if (!form.firstName || !form.lastName || !form.phone || !form.email || !form.password) {
         setError("Please complete all required personal details.");
+        return false;
+      }
+      if (!form.city) {
+        setError("Please select an active operational district to deliver in.");
         return false;
       }
       if (form.dateOfBirth) {
@@ -140,7 +163,7 @@ export default function RegisterPage() {
               Rider Registration
             </h1>
             <p className="text-xs text-zinc-400">
-              Join the AtlasBasket local delivery fleet in Mysuru
+              Join the AtlasBasket local delivery fleet in your operational district
             </p>
           </div>
 
@@ -295,6 +318,35 @@ export default function RegisterPage() {
 
                   <div>
                     <label className="text-[11px] font-medium text-zinc-400 block mb-1">
+                      Operating District * (Admin-Approved Zones)
+                    </label>
+                    <select
+                      name="city"
+                      required
+                      value={form.city}
+                      onChange={handleChange}
+                      className="w-full bg-[#0d0d12] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+                    >
+                      <option value="" className="bg-[#0c0c10] text-zinc-400">
+                        {operationalDistricts.length > 0
+                          ? "Select your operational district..."
+                          : "Loading enabled districts..."}
+                      </option>
+                      {operationalDistricts.map((d) => (
+                        <option key={d.id} value={d.name} className="bg-[#0c0c10]">
+                          {d.name} ({d.state})
+                        </option>
+                      ))}
+                    </select>
+                    {operationalDistricts.length === 0 && (
+                      <p className="text-[10px] text-amber-400/80 mt-1">
+                        Checking operational districts enabled by admin in the database...
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-zinc-400 block mb-1">
                       Residential Address
                     </label>
                     <textarea
@@ -302,7 +354,7 @@ export default function RegisterPage() {
                       rows={2}
                       value={form.residentialAddress}
                       onChange={handleChange}
-                      placeholder="Area, Street, Mysuru"
+                      placeholder="Area, Street, Locality"
                       className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/20"
                     />
                   </div>

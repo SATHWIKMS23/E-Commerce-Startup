@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deliveryApi } from "@/features/delivery/api/deliveryApi";
+import { cityApi } from "@/features/cities/api/cityApi";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useUIStore } from "@/lib/store/uiStore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/Card";
@@ -113,6 +115,16 @@ export function DeliveryBrandingPage() {
     queryKey: ["delivery-settings"],
     queryFn: deliveryApi.getSettings,
   });
+
+  const { data: citiesData } = useQuery({
+    queryKey: ["cities"],
+    queryFn: cityApi.getCities,
+  });
+
+  const allCities = citiesData?.cities ?? citiesData?.data ?? citiesData ?? [];
+  const activeDbDistricts = (Array.isArray(allCities) ? allCities : []).filter(
+    (c: any) => c.isActive
+  );
 
   const updateMutation = useMutation({
     mutationFn: (payload: any) => deliveryApi.updateSettings(payload),
@@ -341,6 +353,56 @@ export function DeliveryBrandingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Controls Form */}
           <div className="lg:col-span-7 space-y-6">
+            {/* Database Operational Coverage (Live from DB) */}
+            <Card className="bg-[#0b0b0e] border-white/[0.08]">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-zinc-300" />
+                    Database Operational Coverage
+                  </CardTitle>
+                  <Link
+                    href="/karnataka/districts"
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white text-zinc-950 hover:bg-zinc-200 transition-colors flex items-center gap-1.5 shadow-sm"
+                  >
+                    <span>Manage Districts</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+                <CardDescription className="text-xs text-zinc-400">
+                  Delivery is strictly restricted to districts enabled by admin in the database. There are no hardcoded default cities.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-zinc-300">
+                    Currently Active Districts ({activeDbDistricts.length}):
+                  </span>
+                </div>
+                {activeDbDistricts.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                    {activeDbDistricts.map((city: any) => (
+                      <span
+                        key={city.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-white/[0.05] border border-white/10 text-zinc-200"
+                      >
+                        <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                        {city.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span>No districts are currently enabled in the database. Enable at least one district under Districts / Cities to accept deliveries.</span>
+                  </div>
+                )}
+                <p className="text-[11px] text-zinc-500">
+                  Toggling a district on or off under <Link href="/karnataka/districts" className="underline text-zinc-300 hover:text-white">Districts / Cities</Link> immediately enables or disables rider registrations, marketplace order dispatch, and external shop requests in that area.
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Section 1: Navbar & Core Identity */}
             <Card className="bg-[#0b0b0e] border-white/[0.08]">
               <CardHeader className="pb-4">

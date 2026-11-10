@@ -106,6 +106,34 @@ export class RiderAuthService {
 
     const maskedAadhaar = this.maskAadhaar(input.aadhaarNumber);
 
+    // Validate operational district against Admin-enabled districts in DB
+    let validatedDistrict: string;
+    if (input.city?.trim()) {
+      const activeDistrict = await prisma.city.findFirst({
+        where: {
+          name: { equals: input.city.trim(), mode: "insensitive" },
+          isActive: true,
+        },
+      });
+      if (!activeDistrict) {
+        throw new Error(
+          `Delivery operations are not currently enabled for district '${input.city}'. Please select an admin-enabled district.`
+        );
+      }
+      validatedDistrict = activeDistrict.name;
+    } else {
+      const firstActive = await prisma.city.findFirst({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+      });
+      if (!firstActive) {
+        throw new Error(
+          "No operational delivery districts are currently enabled by admin in the database."
+        );
+      }
+      validatedDistrict = firstActive.name;
+    }
+
     const rider = await prisma.deliveryPartner.create({
       data: {
         email: input.email.toLowerCase().trim(),
@@ -121,7 +149,7 @@ export class RiderAuthService {
         emergencyContactName: input.emergencyContactName || null,
         emergencyContactPhone: input.emergencyContactPhone || null,
         residentialAddress: input.residentialAddress || null,
-        city: input.city || "Mysuru",
+        city: validatedDistrict,
         vehicleType: input.vehicleType,
         vehicleNumber: input.vehicleNumber || null,
         licenseNumber: input.licenseNumber || null,

@@ -17,17 +17,17 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
 
-  // Synced branding from Admin
+  // Synced branding from Admin & Database-enabled operational districts
   const [branding, setBranding] = useState<{
     brandName: string;
     brandLogoUrl: string | null;
     brandTagline: string;
-    activeCity: string;
+    activeCities: string[];
   }>({
     brandName: "AtlasBasket Delivery",
     brandLogoUrl: null,
     brandTagline: "Local Delivery Fleet",
-    activeCity: "Mysuru",
+    activeCities: [],
   });
   const [logoError, setLogoError] = useState(false);
 
@@ -42,7 +42,7 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
             brandName: s.brandName || "AtlasBasket Delivery",
             brandLogoUrl: s.brandLogoUrl || null,
             brandTagline: s.brandTagline || "Local Delivery Fleet",
-            activeCity: s.activeCity || "Mysuru",
+            activeCities: s.activeCities || [],
           });
         }
       })
@@ -119,7 +119,11 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
               </span>
             </div>
             <span className="hidden md:block text-[10px] text-white/40 font-mono -mt-0.5 truncate">
-              {branding.activeCity} Fleet
+              {branding.activeCities.length > 0
+                ? `${branding.activeCities.slice(0, 2).join(", ")}${
+                    branding.activeCities.length > 2 ? ` +${branding.activeCities.length - 2}` : ""
+                  } Fleet`
+                : "Delivery Network"}
             </span>
           </div>
         </Link>

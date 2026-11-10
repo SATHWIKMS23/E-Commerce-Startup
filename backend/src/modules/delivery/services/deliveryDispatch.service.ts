@@ -83,6 +83,32 @@ export class DeliveryDispatchService {
       throw new Error("Customer shipping address is missing.");
     }
 
+    // Verify pickup and dropoff districts are enabled in the database by admin
+    const pickupDistrict = (pickupAddress as any).city || (pickupAddress as any).district;
+    const dropoffDistrict = (dropoffAddress as any).city || (dropoffAddress as any).district;
+
+    if (pickupDistrict) {
+      const isPickupEnabled = await prisma.city.findFirst({
+        where: { name: { equals: pickupDistrict.trim(), mode: "insensitive" }, isActive: true },
+      });
+      if (!isPickupEnabled) {
+        throw new Error(
+          `Delivery cannot be fulfilled: Pickup district '${pickupDistrict}' is not enabled for delivery operations by admin.`
+        );
+      }
+    }
+
+    if (dropoffDistrict) {
+      const isDropoffEnabled = await prisma.city.findFirst({
+        where: { name: { equals: dropoffDistrict.trim(), mode: "insensitive" }, isActive: true },
+      });
+      if (!isDropoffEnabled) {
+        throw new Error(
+          `Delivery cannot be fulfilled: Drop-off destination district '${dropoffDistrict}' is not enabled for delivery operations by admin.`
+        );
+      }
+    }
+
     const pickupLat = pickupAddress.latitude ? Number(pickupAddress.latitude) : 12.2958;
     const pickupLng = pickupAddress.longitude ? Number(pickupAddress.longitude) : 76.6394;
     const dropoffLat = dropoffAddress.latitude ? Number(dropoffAddress.latitude) : 12.3106;
@@ -187,6 +213,32 @@ export class DeliveryDispatchService {
       where: { id: input.externalShopId },
     });
     if (!shop) throw new Error("External shop not found.");
+
+    // Validate shop district and customer dropoff district are active in DB
+    const shopDistrict = shop.city;
+    const dropoffDistrict = input.dropoffAddress.city;
+
+    if (shopDistrict) {
+      const isShopDistrictEnabled = await prisma.city.findFirst({
+        where: { name: { equals: shopDistrict.trim(), mode: "insensitive" }, isActive: true },
+      });
+      if (!isShopDistrictEnabled) {
+        throw new Error(
+          `Delivery cannot be created: Shop district '${shopDistrict}' is not enabled for delivery operations by admin.`
+        );
+      }
+    }
+
+    if (dropoffDistrict) {
+      const isDropoffDistrictEnabled = await prisma.city.findFirst({
+        where: { name: { equals: dropoffDistrict.trim(), mode: "insensitive" }, isActive: true },
+      });
+      if (!isDropoffDistrictEnabled) {
+        throw new Error(
+          `Delivery cannot be created: Drop-off destination district '${dropoffDistrict}' is not enabled for delivery operations by admin.`
+        );
+      }
+    }
 
     const pickupLat = shop.latitude ? Number(shop.latitude) : 12.2958;
     const pickupLng = shop.longitude ? Number(shop.longitude) : 76.6394;

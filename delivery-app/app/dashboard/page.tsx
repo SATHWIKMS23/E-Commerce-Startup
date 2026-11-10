@@ -29,6 +29,7 @@ interface RiderData {
   lastName: string;
   phone: string;
   email: string;
+  city?: string;
   vehicleType: string;
   verificationStatus: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | "BANNED";
   isAvailable: boolean;
@@ -187,7 +188,7 @@ export default function DashboardPage() {
               <h3 className="font-semibold text-white text-sm">Account Verification Pending</h3>
               <p className="text-xs text-amber-200/80 leading-relaxed">
                 Status: <span className="font-bold tracking-wide uppercase">{rider?.verificationStatus}</span>.
-                Our Mysuru administrative team is reviewing your vehicle details and documents. Once approved, you will be able to go online and receive instant delivery requests.
+                Our operations team is reviewing your vehicle details and documents for {rider?.city ? `${rider.city} district` : "your district"}. Once approved, you will be able to go online and receive instant delivery requests.
               </p>
             </div>
           </div>
@@ -241,7 +242,7 @@ export default function DashboardPage() {
               </h1>
               <p className="text-xs text-zinc-400 max-w-md">
                 {rider?.isAvailable
-                  ? "Your GPS is transmitting to dispatch. Delivery offers in Mysuru will appear automatically."
+                  ? `Your GPS is transmitting to dispatch. Delivery offers in ${rider?.city || "your district"} will appear automatically.`
                   : "Go online when you're ready to receive local pickup and drop-off requests."}
               </p>
             </div>
@@ -398,7 +399,9 @@ export default function DashboardPage() {
             <p className="text-base sm:text-lg font-bold text-white capitalize truncate">
               {rider?.vehicleType?.replace(/_/g, " ") || "Two Wheeler"}
             </p>
-            <p className="text-[10px] sm:text-[11px] text-zinc-400 mt-0.5 sm:mt-1 truncate">Mysuru Fleet</p>
+            <p className="text-[10px] sm:text-[11px] text-zinc-400 mt-0.5 sm:mt-1 truncate">
+              {rider?.city ? `${rider.city} Fleet` : "Operational Fleet"}
+            </p>
           </div>
         </div>
 

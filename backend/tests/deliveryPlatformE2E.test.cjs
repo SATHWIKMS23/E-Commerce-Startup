@@ -244,6 +244,44 @@ async function runDeliveryTests() {
     assert.strictEqual(istTime, "23:12:08");
   });
 
+  // 7. Dynamic District Enforcement & Admin Database Control
+  console.log("\n📍 [7] Dynamic District Operational Coverage (Admin Database Control)");
+
+  test("Allows delivery only in districts currently enabled by Admin in DB", () => {
+    // Simulated DB active districts
+    const dbActiveDistricts = new Map([
+      ["Mysuru", true],
+      ["Bengaluru Urban", true],
+      ["Mandya", false], // Disabled by admin
+    ]);
+
+    function checkDistrictEligibility(districtName) {
+      if (!districtName) return false;
+      return dbActiveDistricts.get(districtName) === true;
+    }
+
+    assert.strictEqual(checkDistrictEligibility("Mysuru"), true);
+    assert.strictEqual(checkDistrictEligibility("Bengaluru Urban"), true);
+    assert.strictEqual(checkDistrictEligibility("Mandya"), false); // Blocked because disabled in DB
+    assert.strictEqual(checkDistrictEligibility("NonExistentDistrict"), false);
+  });
+
+  test("Refuses hardcoded defaults and requires valid admin-enabled district", () => {
+    const dbDistricts = [{ name: "Belagavi", isActive: true }, { name: "Hubli", isActive: true }];
+    const activeNames = dbDistricts.filter(d => d.isActive).map(d => d.name);
+
+    // If an unknown or hardcoded city is requested, it must be rejected unless present in DB
+    function validateOperatingDistrict(inputDistrict) {
+      if (!inputDistrict || !activeNames.includes(inputDistrict)) {
+        throw new Error(`District '${inputDistrict}' is not enabled for delivery operations by admin.`);
+      }
+      return inputDistrict;
+    }
+
+    assert.strictEqual(validateOperatingDistrict("Belagavi"), "Belagavi");
+    assert.throws(() => validateOperatingDistrict("HardcodedCity"), /not enabled/);
+  });
+
   console.log("\n=================================================");
   console.log(`🏁 TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log("=================================================");

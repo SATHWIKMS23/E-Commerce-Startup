@@ -43,9 +43,64 @@ router.post("/api/delivery/auth/google", googleLoginRider);
 router.post("/api/delivery/auth/logout", logoutRider);
 router.get("/api/delivery/riders/:id/public", getPublicProfile);
 
+// Dynamic Operational Districts (Strictly from Database enabled by Admin)
+router.get("/api/delivery/districts", async (req, res) => {
+  try {
+    const districts = await prisma.city.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, state: true },
+      orderBy: { name: "asc" },
+    });
+    return res.status(200).json({
+      success: true,
+      districts: districts.map((d) => ({
+        id: d.id,
+        name: d.name,
+        state: d.state,
+      })),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: "Failed to fetch operational districts" });
+  }
+});
+
 router.get("/api/delivery/settings/public", async (req, res) => {
   try {
     const settings = await DeliverySettingsService.getEffectiveSettings();
+
+    // Query active districts directly from DB enabled by Admin
+    const activeCitiesFromDb = await prisma.city.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, state: true },
+      orderBy: { name: "asc" },
+    });
+    const activeDistrictNames = activeCitiesFromDb.map((c) => c.name);
+
+    const dynamicCityCardValue =
+      settings.cardCityValue && settings.cardCityValue !== "Mysuru"
+        ? settings.cardCityValue
+        : activeDistrictNames.length === 1
+        ? activeDistrictNames[0]
+        : activeDistrictNames.length > 1
+        ? `${activeDistrictNames.length} Districts`
+        : "No active zones";
+
+    const dynamicCityCardDesc =
+      settings.cardCityDesc && settings.cardCityDesc !== "Local delivery zones"
+        ? settings.cardCityDesc
+        : activeDistrictNames.length > 0
+        ? activeDistrictNames.slice(0, 3).join(", ")
+        : "Pending admin enablement";
+
+    const dynamicHeroBadge =
+      settings.heroBadgeText && !settings.heroBadgeText.includes("Mysuru")
+        ? settings.heroBadgeText
+        : activeDistrictNames.length > 0
+        ? `Now Live across ${activeDistrictNames.slice(0, 2).join(", ")}${
+            activeDistrictNames.length > 2 ? ` & ${activeDistrictNames.length - 2} more` : ""
+          }`
+        : "Local Delivery Network";
+
     return res.status(200).json({
       success: true,
       settings: {
@@ -56,15 +111,18 @@ router.get("/api/delivery/settings/public", async (req, res) => {
         baseChargePaise: settings.baseChargePaise,
         perKmChargePaise: settings.perKmChargePaise,
         minDeliveryChargePaise: settings.minDeliveryChargePaise,
-        activeCity: settings.activeCity || "Mysuru",
-        activeCities: settings.activeCities?.length ? settings.activeCities : [settings.activeCity || "Mysuru"],
+        activeCity: activeDistrictNames[0] || null,
+        activeCities: activeDistrictNames,
+        activeDistrictCount: activeDistrictNames.length,
         supportedVehicles: settings.supportedVehicles,
         isDeliveryServiceEnabled: settings.isDeliveryServiceEnabled,
         hero: {
-          badge: settings.heroBadgeText || "Now Launching Across Mysuru City",
+          badge: dynamicHeroBadge,
           line1: settings.heroHeadingLine1 || "Deliver locally.",
           line2: settings.heroHeadingLine2 || "Earn directly with every trip.",
-          description: settings.heroDescription || "Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.",
+          description:
+            settings.heroDescription ||
+            "Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in admin-approved operational districts. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.",
         },
         cards: {
           payout: {
@@ -75,9 +133,9 @@ router.get("/api/delivery/settings/public", async (req, res) => {
           },
           city: {
             show: settings.showCardCity ?? true,
-            value: settings.cardCityValue || settings.activeCity || "Mysuru",
-            label: settings.cardCityLabel || "Active City",
-            desc: settings.cardCityDesc || "Local delivery zones",
+            value: dynamicCityCardValue,
+            label: settings.cardCityLabel || "Active Districts",
+            desc: dynamicCityCardDesc,
           },
           fee: {
             show: settings.showCardFee ?? true,
