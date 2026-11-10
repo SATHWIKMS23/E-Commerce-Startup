@@ -8,7 +8,7 @@ interface SwipeToConfirmProps {
   confirmedLabel?: string;
   onConfirm: () => void | Promise<void>;
   disabled?: boolean;
-  colorScheme?: "blue" | "emerald" | "amber" | "indigo";
+  colorScheme?: "monochrome" | "blue" | "emerald" | "amber" | "indigo";
 }
 
 export function SwipeToConfirm({
@@ -16,7 +16,6 @@ export function SwipeToConfirm({
   confirmedLabel = "Confirmed",
   onConfirm,
   disabled = false,
-  colorScheme = "blue",
 }: SwipeToConfirmProps) {
   const [dragProgress, setDragProgress] = useState(0);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -24,29 +23,6 @@ export function SwipeToConfirm({
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
-
-  const colors = {
-    blue: {
-      sliderBg: "bg-blue-600",
-      trackActive: "bg-blue-500/20",
-      buttonBg: "hover:bg-blue-600/30",
-    },
-    emerald: {
-      sliderBg: "bg-emerald-600",
-      trackActive: "bg-emerald-500/20",
-      buttonBg: "hover:bg-emerald-600/30",
-    },
-    amber: {
-      sliderBg: "bg-amber-600",
-      trackActive: "bg-amber-500/20",
-      buttonBg: "hover:bg-amber-600/30",
-    },
-    indigo: {
-      sliderBg: "bg-indigo-600",
-      trackActive: "bg-indigo-500/20",
-      buttonBg: "hover:bg-indigo-600/30",
-    },
-  }[colorScheme];
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     if (disabled || isConfirmed || isLoading) return;
@@ -118,27 +94,25 @@ export function SwipeToConfirm({
         className={`relative h-14 rounded-2xl p-1 overflow-hidden transition-all duration-200 border ${
           disabled
             ? "opacity-50 cursor-not-allowed border-white/5 bg-white/[0.02]"
-            : "cursor-pointer border-white/10 bg-white/[0.04]"
+            : "cursor-pointer border-white/10 bg-white/[0.03]"
         }`}
       >
         {/* Dynamic Track Fill */}
         <div
-          className={`absolute inset-y-0 left-0 transition-all ${colors.trackActive}`}
+          className="absolute inset-y-0 left-0 transition-all bg-white/10"
           style={{ width: `${dragProgress * 100}%` }}
         />
 
         {/* Center Prompt Text */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-xs sm:text-sm font-semibold tracking-wide text-white/80">
+          <span className="text-xs sm:text-sm font-semibold tracking-wide text-zinc-300">
             {isConfirmed ? confirmedLabel : label}
           </span>
         </div>
 
-        {/* Draggable Thumb Knob */}
+        {/* Draggable Thumb Knob (Clean Monochrome Shadcn) */}
         <div
-          className={`absolute top-1 bottom-1 w-12 rounded-xl flex items-center justify-center text-white shadow-lg transition-transform ${
-            isConfirmed ? "bg-emerald-500" : colors.sliderBg
-          }`}
+          className="absolute top-1 bottom-1 w-12 rounded-xl flex items-center justify-center bg-white text-zinc-950 font-bold shadow-md transition-transform"
           style={{
             transform: `translateX(${
               containerRef.current
@@ -148,9 +122,9 @@ export function SwipeToConfirm({
           }}
         >
           {isConfirmed ? (
-            <Check className="h-5 w-5 animate-scale-in" />
+            <Check className="h-5 w-5" />
           ) : (
-            <ChevronRight className="h-5 w-5 animate-pulse" />
+            <ChevronRight className="h-5 w-5" />
           )}
         </div>
       </div>
@@ -160,7 +134,7 @@ export function SwipeToConfirm({
         type="button"
         disabled={disabled || isLoading || isConfirmed}
         onClick={triggerConfirm}
-        className="w-full text-center text-[11px] text-white/40 hover:text-white/80 transition-colors py-1 cursor-pointer"
+        className="w-full text-center text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors py-1 cursor-pointer"
       >
         Or tap here to confirm
       </button>

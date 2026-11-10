@@ -13,7 +13,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#090a0f",
+  themeColor: "#07070a",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-[#090a0f] text-slate-100 min-h-screen antialiased flex flex-col selection:bg-blue-500/30 selection:text-white">
+      <body className="bg-[#07070a] text-zinc-100 min-h-screen antialiased flex flex-col selection:bg-white/20 selection:text-white">
         {children}
       </body>
     </html>

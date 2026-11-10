@@ -23,6 +23,7 @@ import {
   XCircle,
   FileText,
   ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 
 interface DeliveryDetails {
@@ -99,31 +100,19 @@ export default function DeliveryExecutionPage({
 
   useEffect(() => {
     fetchDelivery();
-    const interval = setInterval(fetchDelivery, 5000);
+    const interval = setInterval(fetchDelivery, 8000);
     return () => clearInterval(interval);
   }, [deliveryId]);
 
-  const loadTimeline = async () => {
-    try {
-      const res = await apiClient.get(`/api/delivery/jobs/${deliveryId}/timeline`);
-      if (res.data?.events) {
-        setTimelineEvents(res.data.events);
-      }
-      setShowTimelineModal(true);
-    } catch (err: any) {
-      alert("Failed to load delivery timeline");
-    }
-  };
-
-  // State actions
   const handleStartPickup = async () => {
     setSubmitting(true);
     setError(null);
     try {
       await apiClient.post(`/api/delivery/jobs/${deliveryId}/start-pickup`);
+      setSuccessMsg("Navigation started. Head towards the store.");
       await fetchDelivery();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to update status");
+      setError(err.response?.data?.message || "Failed to start pickup");
     } finally {
       setSubmitting(false);
     }
@@ -134,9 +123,10 @@ export default function DeliveryExecutionPage({
     setError(null);
     try {
       await apiClient.post(`/api/delivery/jobs/${deliveryId}/arrived-pickup`);
+      setSuccessMsg("Status updated: Arrived at store.");
       await fetchDelivery();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to update status");
+      setError(err.response?.data?.message || "Failed to update arrival");
     } finally {
       setSubmitting(false);
     }
@@ -145,19 +135,20 @@ export default function DeliveryExecutionPage({
   const handleVerifyPickup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pickupOtp) {
-      setError("Please enter the pickup OTP or merchant code.");
+      setError("Please enter the store pickup OTP");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const res = await apiClient.post(`/api/delivery/jobs/${deliveryId}/verify-pickup`, {
-        pickupOtp,
+      await apiClient.post(`/api/delivery/jobs/${deliveryId}/verify-pickup`, {
+        code: pickupOtp.trim(),
       });
-      setSuccessMsg("Pickup verified successfully! Package is now with you.");
+      setSuccessMsg("Pickup verified! Collect package and start delivery.");
+      setPickupOtp("");
       await fetchDelivery();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid pickup verification OTP");
+      setError(err.response?.data?.message || "Invalid pickup OTP");
     } finally {
       setSubmitting(false);
     }
@@ -168,9 +159,10 @@ export default function DeliveryExecutionPage({
     setError(null);
     try {
       await apiClient.post(`/api/delivery/jobs/${deliveryId}/start-dropoff`);
+      setSuccessMsg("On your way to customer!");
       await fetchDelivery();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to update status");
+      setError(err.response?.data?.message || "Failed to start dropoff navigation");
     } finally {
       setSubmitting(false);
     }
@@ -181,9 +173,10 @@ export default function DeliveryExecutionPage({
     setError(null);
     try {
       await apiClient.post(`/api/delivery/jobs/${deliveryId}/arrived-dropoff`);
+      setSuccessMsg("Status updated: Arrived at customer location.");
       await fetchDelivery();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to update status");
+      setError(err.response?.data?.message || "Failed to update dropoff arrival");
     } finally {
       setSubmitting(false);
     }
@@ -192,40 +185,51 @@ export default function DeliveryExecutionPage({
   const handleVerifyDropoff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dropoffOtp) {
-      setError("Please enter the 4-digit dropoff OTP given by the customer.");
+      setError("Please enter customer dropoff OTP");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const res = await apiClient.post(`/api/delivery/jobs/${deliveryId}/verify-dropoff`, {
-        dropoffOtp,
+      await apiClient.post(`/api/delivery/jobs/${deliveryId}/verify-dropoff`, {
+        code: dropoffOtp.trim(),
       });
-      setSuccessMsg("Delivery completed! Payment credited to your account.");
+      setSuccessMsg("Delivery completed successfully! Payout credited.");
+      setDropoffOtp("");
       await fetchDelivery();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid dropoff verification OTP");
+      setError(err.response?.data?.message || "Invalid dropoff OTP");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCancel = async () => {
-    if (!cancelReason.trim()) {
-      alert("Please enter a reason for cancellation");
-      return;
-    }
+    if (!cancelReason) return;
     setSubmitting(true);
     try {
       await apiClient.post(`/api/delivery/jobs/${deliveryId}/cancel`, {
         reason: cancelReason,
       });
       setShowCancelModal(false);
+      alert("Delivery assignment cancelled.");
       router.push("/dashboard");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to cancel delivery");
+      alert(err.response?.data?.message || "Failed to cancel assignment");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const loadTimeline = async () => {
+    setShowTimelineModal(true);
+    try {
+      const res = await apiClient.get(`/api/delivery/jobs/${deliveryId}/timeline`);
+      if (res.data?.events) {
+        setTimelineEvents(res.data.events);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -253,10 +257,10 @@ export default function DeliveryExecutionPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-[#07070a] flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-slate-400">Loading delivery details...</p>
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-xs text-zinc-400">Loading delivery details...</p>
         </div>
       </div>
     );
@@ -264,9 +268,9 @@ export default function DeliveryExecutionPage({
 
   if (!delivery) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
-        <p className="text-sm text-slate-400 mb-4">Delivery not found or not assigned to you.</p>
-        <Link href="/dashboard" className="px-4 py-2 bg-slate-800 rounded-xl text-xs font-semibold">
+      <div className="min-h-screen bg-[#07070a] text-white flex flex-col items-center justify-center p-4">
+        <p className="text-sm text-zinc-400 mb-4">Delivery not found or not assigned to you.</p>
+        <Link href="/dashboard" className="px-4 py-2 bg-white text-zinc-950 rounded-xl text-xs font-semibold hover:bg-zinc-200 transition-colors">
           Return to Dashboard
         </Link>
       </div>
@@ -298,7 +302,7 @@ export default function DeliveryExecutionPage({
   ].includes(delivery.status);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 md:pb-8">
+    <div className="min-h-screen bg-[#07070a] text-zinc-100 pb-24 md:pb-8">
       <Navbar />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
@@ -306,7 +310,7 @@ export default function DeliveryExecutionPage({
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Dashboard
@@ -315,14 +319,14 @@ export default function DeliveryExecutionPage({
           <div className="flex items-center gap-2">
             <button
               onClick={loadTimeline}
-              className="px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-1.5 cursor-pointer transition-colors"
             >
-              <Clock className="w-3.5 h-3.5 text-emerald-400" />
+              <Clock className="w-3.5 h-3.5 text-zinc-400" />
               Timeline Audit
             </button>
             <button
               onClick={() => setShowIncidentModal(true)}
-              className="px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-medium text-rose-400 hover:text-rose-300 flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               Report Issue
@@ -331,35 +335,35 @@ export default function DeliveryExecutionPage({
         </div>
 
         {error && (
-          <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-3 text-rose-400 text-sm">
-            <AlertCircleIcon className="w-5 h-5 flex-shrink-0" />
+          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-2.5 text-rose-300 text-xs">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
             <span>{error}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-400 text-sm">
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+          <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/15 flex items-center gap-2.5 text-white text-xs">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
             <span>{successMsg}</span>
           </div>
         )}
 
         {/* Status Tracker Bar */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-3xl p-6 shadow-2xl space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
                 Delivery #{delivery.trackingNumber || delivery.id.slice(0, 8)}
               </span>
-              <h1 className="text-xl font-black text-white mt-0.5">
-                Status: {delivery.status.replace(/_/g, " ")}
+              <h1 className="text-xl font-bold text-white mt-0.5">
+                {delivery.status.replace(/_/g, " ")}
               </h1>
             </div>
             <div className="text-right">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
                 Payout
               </span>
-              <p className="text-2xl font-black text-emerald-400">
+              <p className="text-2xl font-bold text-white">
                 ₹{(delivery.riderPayoutAmountPaise / 100).toFixed(2)}
               </p>
             </div>
@@ -368,33 +372,33 @@ export default function DeliveryExecutionPage({
           {/* Progress Steps Indicator */}
           <div className="grid grid-cols-4 gap-2 pt-2">
             <div
-              className={`h-2 rounded-full ${
+              className={`h-1.5 rounded-full ${
                 isPickupStage || isDropoffStage || isCompleted
-                  ? "bg-emerald-500"
-                  : "bg-slate-800"
+                  ? "bg-white"
+                  : "bg-white/10"
               }`}
             />
             <div
-              className={`h-2 rounded-full ${
+              className={`h-1.5 rounded-full ${
                 delivery.status === "ARRIVED_AT_PICKUP" ||
                 isDropoffStage ||
                 isCompleted
-                  ? "bg-emerald-500"
-                  : "bg-slate-800"
+                  ? "bg-white"
+                  : "bg-white/10"
               }`}
             />
             <div
-              className={`h-2 rounded-full ${
-                isDropoffStage || isCompleted ? "bg-emerald-500" : "bg-slate-800"
+              className={`h-1.5 rounded-full ${
+                isDropoffStage || isCompleted ? "bg-white" : "bg-white/10"
               }`}
             />
             <div
-              className={`h-2 rounded-full ${
-                isCompleted ? "bg-emerald-500" : "bg-slate-800"
+              className={`h-1.5 rounded-full ${
+                isCompleted ? "bg-white" : "bg-white/10"
               }`}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+          <div className="flex justify-between text-[10px] text-zinc-500 font-medium">
             <span>Assigned</span>
             <span>At Pickup</span>
             <span>In Transit</span>
@@ -418,27 +422,27 @@ export default function DeliveryExecutionPage({
 
         {/* Stage 1: Pickup Workflow */}
         {isPickupStage && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-3xl p-6 space-y-5 shadow-2xl">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white flex-shrink-0">
                   <Store className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wide">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">
                     Step 1 • Store Pickup
                   </span>
                   <h3 className="text-base font-bold text-white">
                     {delivery.pickupContactName || "Partner Merchant"}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">{delivery.pickupAddress}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">{delivery.pickupAddress}</p>
                 </div>
               </div>
 
               {delivery.pickupContactPhone && (
                 <a
                   href={`tel:${delivery.pickupContactPhone}`}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition-colors"
+                  className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-white border border-white/10 transition-colors"
                 >
                   <Phone className="w-4 h-4" />
                 </a>
@@ -451,7 +455,7 @@ export default function DeliveryExecutionPage({
                 type="button"
                 disabled={submitting}
                 onClick={handleStartPickup}
-                className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+                className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xl text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50"
               >
                 Start Navigation to Pickup
               </button>
@@ -462,7 +466,7 @@ export default function DeliveryExecutionPage({
                 type="button"
                 disabled={submitting}
                 onClick={handleArrivedPickup}
-                className="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
+                className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xl text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50"
               >
                 I Have Arrived at Pickup Store
               </button>
@@ -471,9 +475,9 @@ export default function DeliveryExecutionPage({
             {(delivery.status === "ARRIVED_AT_PICKUP" ||
               delivery.status === "PICKUP_VERIFICATION") && (
               <form onSubmit={handleVerifyPickup} className="space-y-4 pt-2">
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                    <KeyRound className="w-4 h-4 text-emerald-400" />
+                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-300">
+                    <KeyRound className="w-4 h-4 text-zinc-400" />
                     Enter Pickup Verification OTP from Store
                   </div>
                   <input
@@ -482,9 +486,9 @@ export default function DeliveryExecutionPage({
                     value={pickupOtp}
                     onChange={(e) => setPickupOtp(e.target.value)}
                     placeholder="Enter 4-digit Store OTP"
-                    className="w-full text-center text-2xl font-mono tracking-widest py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full text-center text-2xl font-mono tracking-widest py-3 bg-white/[0.03] border border-white/10 rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20"
                   />
-                  <p className="text-[11px] text-slate-500 text-center">
+                  <p className="text-[11px] text-zinc-500 text-center">
                     Ask the store manager for the order pickup OTP before taking the package.
                   </p>
                 </div>
@@ -492,7 +496,7 @@ export default function DeliveryExecutionPage({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xl text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50"
                 >
                   Verify Pickup & Collect Package
                 </button>
@@ -503,27 +507,27 @@ export default function DeliveryExecutionPage({
 
         {/* Stage 2: Dropoff Workflow */}
         {isDropoffStage && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-3xl p-6 space-y-5 shadow-2xl">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white flex-shrink-0">
                   <User className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wide">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">
                     Step 2 • Customer Dropoff
                   </span>
                   <h3 className="text-base font-bold text-white">
                     {delivery.dropoffContactName || "Customer"}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">{delivery.dropoffAddress}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">{delivery.dropoffAddress}</p>
                 </div>
               </div>
 
               {delivery.dropoffContactPhone && (
                 <a
                   href={`tel:${delivery.dropoffContactPhone}`}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition-colors"
+                  className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-white border border-white/10 transition-colors"
                 >
                   <Phone className="w-4 h-4" />
                 </a>
@@ -535,7 +539,7 @@ export default function DeliveryExecutionPage({
                 type="button"
                 disabled={submitting}
                 onClick={handleStartDropoff}
-                className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+                className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xl text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50"
               >
                 Start Navigation to Customer
               </button>
@@ -546,7 +550,7 @@ export default function DeliveryExecutionPage({
                 type="button"
                 disabled={submitting}
                 onClick={handleArrivedDropoff}
-                className="w-full py-3.5 px-4 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-lg shadow-teal-500/20 cursor-pointer"
+                className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xl text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50"
               >
                 I Have Arrived at Customer Location
               </button>
@@ -555,9 +559,9 @@ export default function DeliveryExecutionPage({
             {(delivery.status === "ARRIVED_AT_DROPOFF" ||
               delivery.status === "DELIVERY_VERIFICATION") && (
               <form onSubmit={handleVerifyDropoff} className="space-y-4 pt-2">
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                    <KeyRound className="w-4 h-4 text-emerald-400" />
+                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-300">
+                    <KeyRound className="w-4 h-4 text-zinc-400" />
                     Enter Customer Dropoff OTP
                   </div>
                   <input
@@ -566,9 +570,9 @@ export default function DeliveryExecutionPage({
                     value={dropoffOtp}
                     onChange={(e) => setDropoffOtp(e.target.value)}
                     placeholder="Enter 4-digit Customer OTP"
-                    className="w-full text-center text-2xl font-mono tracking-widest py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full text-center text-2xl font-mono tracking-widest py-3 bg-white/[0.03] border border-white/10 rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20"
                   />
-                  <p className="text-[11px] text-slate-500 text-center">
+                  <p className="text-[11px] text-zinc-500 text-center">
                     Ask the customer for their delivery verification code before handing over the goods.
                   </p>
                 </div>
@@ -576,7 +580,7 @@ export default function DeliveryExecutionPage({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xl text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50"
                 >
                   Verify Dropoff & Complete Order
                 </button>
@@ -587,17 +591,17 @@ export default function DeliveryExecutionPage({
 
         {/* Stage 3: Completed Banner */}
         {isCompleted && (
-          <div className="bg-emerald-950/40 border-2 border-emerald-500/50 rounded-3xl p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-3xl p-8 text-center space-y-4 shadow-2xl">
+            <div className="w-14 h-14 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white mx-auto">
+              <CheckCircle2 className="w-7 h-7" />
             </div>
-            <h2 className="text-2xl font-black text-white">Delivery Completed!</h2>
-            <p className="text-xs text-slate-300 max-w-sm mx-auto">
+            <h2 className="text-xl font-bold text-white">Delivery Completed!</h2>
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
               ₹{(delivery.riderPayoutAmountPaise / 100).toFixed(2)} has been credited to your rider account ledger.
             </p>
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors"
+              className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs transition-colors shadow-sm"
             >
               Back to Dashboard
             </Link>
@@ -609,7 +613,7 @@ export default function DeliveryExecutionPage({
           <div className="pt-2 text-center">
             <button
               onClick={() => setShowCancelModal(true)}
-              className="text-xs text-slate-500 hover:text-rose-400 transition-colors flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+              className="text-xs text-zinc-500 hover:text-rose-400 transition-colors flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
             >
               <XCircle className="w-3.5 h-3.5" />
               Unable to complete delivery? Cancel Job
@@ -621,39 +625,39 @@ export default function DeliveryExecutionPage({
       {/* Cancel Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-400" />
+          <div className="bg-[#0c0c10] border border-white/10 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
               Cancel Delivery Job
             </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-zinc-400 leading-relaxed">
               Frequent cancellations impact your reliability rating. Please select a valid reason.
             </p>
 
             <select
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              className="w-full py-2.5 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs"
+              className="w-full py-2.5 px-3 bg-white/[0.03] border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:ring-1 focus:ring-white/20"
             >
-              <option value="">Select reason...</option>
-              <option value="Vehicle Breakdown">Vehicle Breakdown</option>
-              <option value="Store Closed / Not Answering">Store Closed / Not Answering</option>
-              <option value="Customer Unreachable">Customer Unreachable</option>
-              <option value="Accident / Personal Emergency">Accident / Personal Emergency</option>
-              <option value="Heavy Rain / Adverse Weather">Heavy Rain / Adverse Weather</option>
+              <option value="" className="bg-[#0c0c10] text-zinc-400">Select reason...</option>
+              <option value="Vehicle Breakdown" className="bg-[#0c0c10]">Vehicle Breakdown</option>
+              <option value="Store Closed / Not Answering" className="bg-[#0c0c10]">Store Closed / Not Answering</option>
+              <option value="Customer Unreachable" className="bg-[#0c0c10]">Customer Unreachable</option>
+              <option value="Accident / Personal Emergency" className="bg-[#0c0c10]">Accident / Personal Emergency</option>
+              <option value="Heavy Rain / Adverse Weather" className="bg-[#0c0c10]">Heavy Rain / Adverse Weather</option>
             </select>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-2.5 pt-2">
               <button
                 onClick={() => setShowCancelModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+                className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-zinc-300 text-xs font-medium transition-colors"
               >
                 Go Back
               </button>
               <button
                 onClick={handleCancel}
                 disabled={submitting || !cancelReason}
-                className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
               >
                 Confirm Cancel
               </button>
@@ -665,34 +669,34 @@ export default function DeliveryExecutionPage({
       {/* Incident Report Modal */}
       {showIncidentModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+          <div className="bg-[#0c0c10] border border-white/10 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
               Report Incident / Damage
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-zinc-400">
               Submit details to protect your account standing during dispatch audits.
             </p>
 
             <div>
-              <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+              <label className="text-[11px] font-medium text-zinc-400 block mb-1">
                 Incident Category
               </label>
               <select
                 value={incidentType}
                 onChange={(e) => setIncidentType(e.target.value)}
-                className="w-full py-2.5 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs"
+                className="w-full py-2.5 px-3 bg-white/[0.03] border border-white/10 rounded-xl text-white text-xs focus:outline-none"
               >
-                <option value="DAMAGED_PACKAGE">Damaged Package on Pickup</option>
-                <option value="WRONG_ITEM">Wrong Item Handed by Store</option>
-                <option value="CUSTOMER_UNREACHABLE">Customer Not Answering</option>
-                <option value="INCORRECT_ADDRESS">Address Incorrect or Remote</option>
-                <option value="PACKAGE_LEAKAGE">Liquid Leakage / Spill</option>
+                <option value="DAMAGED_PACKAGE" className="bg-[#0c0c10]">Damaged Package on Pickup</option>
+                <option value="WRONG_ITEM" className="bg-[#0c0c10]">Wrong Item Handed by Store</option>
+                <option value="CUSTOMER_UNREACHABLE" className="bg-[#0c0c10]">Customer Not Answering</option>
+                <option value="INCORRECT_ADDRESS" className="bg-[#0c0c10]">Address Incorrect or Remote</option>
+                <option value="PACKAGE_LEAKAGE" className="bg-[#0c0c10]">Liquid Leakage / Spill</option>
               </select>
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+              <label className="text-[11px] font-medium text-zinc-400 block mb-1">
                 Details & Notes
               </label>
               <textarea
@@ -700,21 +704,21 @@ export default function DeliveryExecutionPage({
                 value={incidentDesc}
                 onChange={(e) => setIncidentDesc(e.target.value)}
                 placeholder="Explain what occurred..."
-                className="w-full py-2.5 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full py-2.5 px-3 bg-white/[0.03] border border-white/10 rounded-xl text-white text-xs placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-white/20"
               />
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-2.5 pt-2">
               <button
                 onClick={() => setShowIncidentModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+                className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-zinc-300 text-xs font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReportIncident}
                 disabled={submitting || !incidentDesc.trim()}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold disabled:opacity-50 transition-colors"
               >
                 Submit Report
               </button>
@@ -726,34 +730,34 @@ export default function DeliveryExecutionPage({
       {/* Timeline Audit Modal */}
       {showTimelineModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-400" />
+          <div className="bg-[#0c0c10] border border-white/10 rounded-3xl p-6 max-w-lg w-full space-y-4 max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Clock className="w-4 h-4 text-zinc-400" />
                 Delivery Audit Timeline (Second Precision)
               </h3>
               <button
                 onClick={() => setShowTimelineModal(false)}
-                className="text-slate-400 hover:text-white text-xs"
+                className="text-zinc-400 hover:text-white text-xs"
               >
                 ✕
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-2">
               {timelineEvents.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-6">No events recorded yet</p>
+                <p className="text-xs text-zinc-500 text-center py-6">No events recorded yet</p>
               ) : (
                 timelineEvents.map((evt, idx) => (
                   <div
                     key={evt.id || idx}
-                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1"
+                    className="p-3 rounded-xl bg-white/[0.02] border border-white/10 text-xs space-y-1"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-emerald-400 font-mono">
+                      <span className="font-bold text-white font-mono text-[11px]">
                         {evt.status || evt.eventType}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
+                      <span className="text-[10px] text-zinc-500 font-mono">
                         {new Date(evt.createdAt).toLocaleString("en-IN", {
                           timeZone: "Asia/Kolkata",
                           hour12: true,
@@ -761,7 +765,7 @@ export default function DeliveryExecutionPage({
                       </span>
                     </div>
                     {evt.description && (
-                      <p className="text-slate-300 text-[11px]">{evt.description}</p>
+                      <p className="text-zinc-400 text-[11px]">{evt.description}</p>
                     )}
                   </div>
                 ))
@@ -770,7 +774,7 @@ export default function DeliveryExecutionPage({
 
             <button
               onClick={() => setShowTimelineModal(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold"
+              className="w-full py-2.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-zinc-200 text-xs font-semibold transition-colors"
             >
               Close
             </button>
@@ -780,15 +784,5 @@ export default function DeliveryExecutionPage({
 
       <BottomNav hasActiveDelivery={!isCompleted && !isCancelled} />
     </div>
-  );
-}
-
-function AlertCircleIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" strokeWidth="2" />
-      <line x1="12" y1="8" x2="12" y2="12" strokeWidth="2" strokeLinecap="round" />
-      <line x1="12" y1="16" x2="12.01" y2="16" strokeWidth="2" strokeLinecap="round" />
-    </svg>
   );
 }

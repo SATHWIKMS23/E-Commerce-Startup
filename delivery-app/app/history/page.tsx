@@ -93,41 +93,43 @@ export default function HistoryPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 md:pb-8">
+    <div className="min-h-screen bg-[#07070a] text-zinc-100 pb-24 md:pb-8 relative overflow-hidden">
+      {/* Subtle monochrome ambient glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[520px] h-[520px] bg-white/[0.025] blur-[140px] pointer-events-none rounded-full" />
+
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Dashboard
           </Link>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/10 text-xs">
             <button
               onClick={() => setFilter("ALL")}
-              className={`px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                filter === "ALL" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"
+              className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                filter === "ALL" ? "bg-white/10 text-white" : "text-zinc-400 hover:text-white"
               }`}
             >
               All
             </button>
             <button
               onClick={() => setFilter("COMPLETED")}
-              className={`px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                filter === "COMPLETED" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"
+              className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                filter === "COMPLETED" ? "bg-white/10 text-white" : "text-zinc-400 hover:text-white"
               }`}
             >
               Completed
             </button>
             <button
               onClick={() => setFilter("CANCELLED")}
-              className={`px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                filter === "CANCELLED" ? "bg-rose-500/20 text-rose-400" : "text-slate-400 hover:text-white"
+              className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                filter === "CANCELLED" ? "bg-rose-500/20 text-rose-300" : "text-zinc-400 hover:text-white"
               }`}
             >
               Cancelled
@@ -136,101 +138,102 @@ export default function HistoryPage() {
         </div>
 
         <div className="space-y-1">
-          <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            <Clock className="w-6 h-6 text-emerald-400" />
+          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <Clock className="w-5 h-5 text-zinc-300" />
             Delivery History
           </h1>
-          <p className="text-xs text-slate-400">
-            Records of completed and past deliveries in Mysuru
+          <p className="text-xs text-zinc-400">
+            Immutable log of all trips fulfilled across Mysuru with full audit trails
           </p>
         </div>
 
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
-            <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs">Loading past deliveries...</p>
+          <div className="py-20 flex flex-col items-center justify-center text-zinc-400 gap-3">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <p className="text-xs">Loading delivery history...</p>
           </div>
         ) : filteredDeliveries.length === 0 ? (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
-            <Clock className="w-10 h-10 text-slate-600 mx-auto" />
-            <p className="text-sm font-semibold text-slate-300">No delivery records found</p>
-            <p className="text-xs text-slate-500">
-              Orders you deliver will be permanently archived here with second-precision audit timestamps.
-            </p>
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-3xl p-12 text-center space-y-4">
+            <Clock className="w-12 h-12 text-zinc-600 mx-auto" />
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white">No delivery trips found</h3>
+              <p className="text-xs text-zinc-400">
+                Completed orders will automatically be cataloged here.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredDeliveries.map((d) => {
-              const isDone = d.status === "COMPLETED" || d.status === "DELIVERED";
-              const rating = d.ratings?.[0]?.rating;
+            {filteredDeliveries.map((item) => {
+              const isDone = item.status === "COMPLETED" || item.status === "DELIVERED";
+              const isCancelled = item.status === "CANCELLED" || item.status === "FAILED";
 
               return (
                 <div
-                  key={d.id}
-                  onClick={() => openDetails(d)}
-                  className="p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg group"
+                  key={item.id}
+                  onClick={() => openDetails(item)}
+                  className="p-5 rounded-3xl bg-white/[0.025] hover:bg-white/[0.04] border border-white/[0.08] backdrop-blur-xl transition-all cursor-pointer space-y-4 shadow-sm"
                 >
-                  <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs font-bold text-white">
-                        #{d.trackingNumber || d.id.slice(0, 8)}
-                      </span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${
                           isDone
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                            : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                            ? "bg-white/[0.05] text-zinc-200 border border-white/10"
+                            : "bg-rose-500/10 text-rose-300 border border-rose-500/20"
                         }`}
                       >
-                        {d.status.replace(/_/g, " ")}
-                      </span>
-                      {d.externalShop && (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold">
-                          Local Shop: {d.externalShop.name}
+                        {isDone ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-white text-xs">
+                            #{item.trackingNumber || item.id.slice(0, 8)}
+                          </span>
+                          {item.externalShop && (
+                            <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] text-zinc-300 font-medium">
+                              Local Shop: {item.externalShop.name}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-zinc-500 block mt-0.5">
+                          {new Date(item.completedAt || item.createdAt).toLocaleString("en-IN", {
+                            timeZone: "Asia/Kolkata",
+                          })}
                         </span>
-                      )}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400">
-                      <div className="flex items-center gap-1.5 line-clamp-1">
-                        <Store className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                        <span className="truncate">{d.pickupAddress}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 line-clamp-1">
-                        <User className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                        <span className="truncate">{d.dropoffAddress}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-[11px] text-slate-500 font-mono">
-                      <span>
-                        {new Date(d.completedAt || d.createdAt).toLocaleDateString("en-IN", {
-                          timeZone: "Asia/Kolkata",
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                    <div className="text-left sm:text-right flex sm:flex-col items-center sm:items-end justify-between">
+                      <span className="text-base font-bold text-white">
+                        ₹{(item.riderPayoutAmountPaise / 100).toFixed(2)}
                       </span>
-                      {d.distanceKm && <span>{d.distanceKm} km</span>}
-                      {rating && (
-                        <span className="flex items-center gap-1 text-amber-400">
-                          <Star className="w-3 h-3 fill-amber-400" />
-                          {rating}.0
-                        </span>
-                      )}
+                      <span className="text-[10px] text-zinc-500">
+                        {item.distanceKm ? `${item.distanceKm} km` : "Delivered"}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 border-slate-800 pt-3 sm:pt-0">
-                    <div className="text-right">
-                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
-                        Payout Earned
-                      </span>
-                      <p className="text-lg font-black text-emerald-400">
-                        ₹{((d.riderPayoutAmountPaise / 100)).toFixed(2)}
-                      </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="flex items-start gap-2.5">
+                      <Store className="w-3.5 h-3.5 text-zinc-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium text-zinc-400 block text-[11px]">Pickup</span>
+                        <p className="text-zinc-200 text-xs">
+                          {item.pickupContactName || "Vendor"} - {item.pickupAddress}
+                        </p>
+                      </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-white transition-colors" />
+
+                    <div className="flex items-start gap-2.5">
+                      <User className="w-3.5 h-3.5 text-zinc-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium text-zinc-400 block text-[11px]">Dropoff</span>
+                        <p className="text-zinc-200 text-xs">
+                          {item.dropoffContactName || "Customer"} - {item.dropoffAddress}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -239,78 +242,61 @@ export default function HistoryPage() {
         )}
       </main>
 
-      {/* Details & Timeline Modal */}
+      {/* Detail Modal */}
       {selectedDelivery && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="bg-[#0b0b0e] border border-white/10 rounded-3xl max-w-lg w-full p-6 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div>
-                <span className="text-[10px] font-mono text-slate-500 uppercase">
-                  Delivery Details
-                </span>
-                <h3 className="text-base font-bold text-white font-mono">
+                <h3 className="font-bold text-white text-base">Trip Details & Audit Timeline</h3>
+                <span className="font-mono text-xs text-zinc-400">
                   #{selectedDelivery.trackingNumber || selectedDelivery.id}
-                </h3>
+                </span>
               </div>
               <button
                 onClick={() => setSelectedDelivery(null)}
-                className="text-slate-400 hover:text-white text-xs cursor-pointer"
+                className="text-zinc-400 hover:text-white p-1 rounded-lg"
               >
-                ✕
+                <XCircle className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+            <div className="space-y-4 text-xs">
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase block">
-                    Pickup Store / Vendor
+                  <span className="text-zinc-500 block text-[11px]">Rider Earnings</span>
+                  <span className="text-xl font-bold text-white">
+                    ₹{(selectedDelivery.riderPayoutAmountPaise / 100).toFixed(2)}
                   </span>
-                  <p className="font-semibold text-slate-200 mt-0.5">
-                    {selectedDelivery.pickupContactName || "Partner Store"}
-                  </p>
-                  <p className="text-slate-400 text-[11px] mt-0.5">
-                    {selectedDelivery.pickupAddress}
-                  </p>
                 </div>
-
-                <div className="border-t border-slate-800/80 pt-2">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase block">
-                    Dropoff Recipient
+                <div className="text-right">
+                  <span className="text-zinc-500 block text-[11px]">Trip Distance</span>
+                  <span className="text-base font-bold text-white">
+                    {selectedDelivery.distanceKm || "—"} km
                   </span>
-                  <p className="font-semibold text-slate-200 mt-0.5">
-                    {selectedDelivery.dropoffContactName || "Customer"}
-                  </p>
-                  <p className="text-slate-400 text-[11px] mt-0.5">
-                    {selectedDelivery.dropoffAddress}
-                  </p>
                 </div>
               </div>
 
-              {/* Second Precision Audit Log */}
               <div>
-                <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                  Second-Level Timestamp Audit Log
+                <h4 className="font-semibold text-zinc-300 uppercase tracking-wider text-[11px] mb-3">
+                  Trip Event Timeline
                 </h4>
                 {loadingTimeline ? (
-                  <p className="text-slate-500 text-[11px]">Loading events...</p>
+                  <div className="py-6 text-center text-zinc-500 text-xs">Loading event audit log...</div>
                 ) : timelineEvents.length === 0 ? (
-                  <p className="text-slate-500 text-[11px]">No timeline events recorded.</p>
+                  <div className="py-6 text-center text-zinc-500 text-xs">No audit events recorded for this trip.</div>
                 ) : (
-                  <div className="space-y-2">
-                    {timelineEvents.map((e, idx) => (
-                      <div
-                        key={e.id || idx}
-                        className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between"
-                      >
-                        <span className="font-mono text-emerald-400 text-[11px]">
-                          {e.status || e.eventType}
-                        </span>
-                        <span className="font-mono text-slate-500 text-[10px]">
-                          {new Date(e.createdAt).toLocaleString("en-IN", {
+                  <div className="space-y-3 relative pl-6 border-l border-white/10">
+                    {timelineEvents.map((ev, idx) => (
+                      <div key={idx} className="relative space-y-0.5">
+                        <span className="absolute -left-[31px] top-1 w-2.5 h-2.5 rounded-full bg-white" />
+                        <p className="font-semibold text-white text-xs">
+                          {ev.action || ev.status || "Event"}
+                        </p>
+                        <p className="text-[11px] text-zinc-400">{ev.details || ev.message}</p>
+                        <span className="text-[10px] text-zinc-500 block font-mono">
+                          {new Date(ev.timestamp || ev.createdAt).toLocaleTimeString("en-IN", {
                             timeZone: "Asia/Kolkata",
-                            hour12: true,
                           })}
                         </span>
                       </div>
@@ -322,9 +308,9 @@ export default function HistoryPage() {
 
             <button
               onClick={() => setSelectedDelivery(null)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors"
             >
-              Close
+              Close Details
             </button>
           </div>
         </div>

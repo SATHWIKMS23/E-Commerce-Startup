@@ -1,27 +1,26 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiClient } from "@/lib/apiClient";
 import { Navbar } from "@/components/layout/Navbar";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { apiClient } from "@/lib/apiClient";
 import {
-  Bike,
   Power,
-  ShieldAlert,
-  Clock,
-  ArrowRight,
   TrendingUp,
-  MapPin,
+  Package,
+  Clock,
   Star,
-  CheckCircle2,
+  MapPin,
+  ChevronRight,
+  ShieldAlert,
   AlertTriangle,
   Radio,
-  ChevronRight,
+  CheckCircle2,
+  Bike,
+  ArrowRight,
   Phone,
-  Package,
-  Layers,
 } from "lucide-react";
 
 interface RiderData {
@@ -30,23 +29,20 @@ interface RiderData {
   lastName: string;
   phone: string;
   email: string;
-  verificationStatus: string;
+  vehicleType: string;
+  verificationStatus: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | "BANNED";
   isAvailable: boolean;
-  activeDeliveryId?: string | null;
   ratingAverage: number;
   ratingCount: number;
-  vehicleType: string;
-  currentLatitude?: number | null;
-  currentLongitude?: number | null;
 }
 
 interface DashboardSummary {
   todayEarnings: number;
+  pendingEarnings: number;
   todayCompletedCount: number;
-  totalEarnings: number;
   totalCompletedCount: number;
-  activeStrikesCount: number;
   pendingOffersCount: number;
+  activeStrikesCount: number;
   activeDelivery: any | null;
 }
 
@@ -57,96 +53,64 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const locationWatchId = useRef<number | null>(null);
 
-  const fetchDashboardData = async () => {
+  useEffect(() => {
+    const token = localStorage.getItem("delivery_partner_token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    fetchDashboard();
+    const interval = setInterval(fetchDashboard, 15000); // Polling every 15s for new jobs
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchDashboard = async () => {
     try {
-      const [meRes, dashRes] = await Promise.all([
+      const [profileRes, dashRes] = await Promise.all([
         apiClient.get("/api/delivery/riders/me"),
         apiClient.get("/api/delivery/dashboard"),
       ]);
 
-      if (meRes.data?.rider) {
-        setRider(meRes.data.rider);
+      if (profileRes.data?.rider) {
+        setRider(profileRes.data.rider);
+        localStorage.setItem("delivery_partner_rider", JSON.stringify(profileRes.data.rider));
       }
       if (dashRes.data?.summary) {
         setSummary(dashRes.data.summary);
       }
     } catch (err: any) {
       if (err.response?.status === 401) {
+        localStorage.removeItem("delivery_partner_token");
         router.push("/login");
-      } else {
-        setError(err.response?.data?.message || "Failed to load dashboard data");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 15000); // 15s refresh for live offers & status
-    return () => clearInterval(interval);
-  }, []);
-
-  // Periodic GPS location tracker when online
-  useEffect(() => {
-    if (!rider?.isAvailable) {
-      if (locationWatchId.current !== null) {
-        navigator.geolocation?.clearWatch(locationWatchId.current);
-        locationWatchId.current = null;
-      }
-      return;
-    }
-
-    if (typeof window !== "undefined" && "geolocation" in navigator) {
-      const sendLocation = (lat: number, lng: number) => {
-        apiClient.post("/api/delivery/location", {
-          latitude: lat,
-          longitude: lng,
-        }).catch(() => {});
-      };
-
-      navigator.geolocation.getCurrentPosition(
-        (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude),
-        (err) => console.warn("GPS error:", err.message),
-        { enableHighAccuracy: true }
-      );
-
-      const interval = setInterval(() => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude),
-          undefined,
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      }, 30000);
-
-      return () => clearInterval(interval);
-    }
-  }, [rider?.isAvailable]);
-
   const handleToggleOnline = async () => {
-    if (!rider) return;
+    if (!rider || togglingStatus) return;
+
     if (rider.verificationStatus !== "APPROVED") {
-      alert("Your account must be APPROVED by Admin before going online.");
+      alert("Only approved riders can activate availability. Your verification is currently pending review.");
       return;
     }
 
     setTogglingStatus(true);
-    setError(null);
-
     const nextState = !rider.isAvailable;
 
     if (nextState) {
-      // Prompt for geolocation
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
-          async (position) => {
+          async (pos) => {
             try {
-              const res = await apiClient.post("/api/delivery/availability", {
+              await apiClient.post("/api/delivery/availability", {
                 isAvailable: true,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                batteryLevel: 95,
               });
               setRider((prev) => (prev ? { ...prev, isAvailable: true } : prev));
             } catch (err: any) {
@@ -156,9 +120,12 @@ export default function DashboardPage() {
             }
           },
           async () => {
-            // Fallback without coords
             try {
-              await apiClient.post("/api/delivery/availability", { isAvailable: true });
+              await apiClient.post("/api/delivery/availability", {
+                isAvailable: true,
+                latitude: 12.2958, // Default Mysuru Center
+                longitude: 76.6394,
+              });
               setRider((prev) => (prev ? { ...prev, isAvailable: true } : prev));
             } catch (err: any) {
               setError(err.response?.data?.message || "Failed to go online");
@@ -166,7 +133,7 @@ export default function DashboardPage() {
               setTogglingStatus(false);
             }
           },
-          { enableHighAccuracy: true, timeout: 8000 }
+          { enableHighAccuracy: true }
         );
       } else {
         try {
@@ -192,10 +159,10 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-[#07070a] flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-400">Loading rider profile...</p>
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-xs text-zinc-400">Loading rider profile...</p>
         </div>
       </div>
     );
@@ -205,17 +172,20 @@ export default function DashboardPage() {
   const activeDelivery = summary?.activeDelivery;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 md:pb-8">
+    <div className="min-h-screen bg-[#07070a] text-zinc-100 pb-24 md:pb-8 relative overflow-hidden">
+      {/* Background Subtle Ambient Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[520px] h-[520px] bg-white/[0.025] blur-[140px] pointer-events-none rounded-full" />
+
       <Navbar rider={rider} />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 space-y-6 relative z-10">
         {/* Verification Alert Banner */}
         {!isApproved && (
-          <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-4 text-amber-300 shadow-lg">
-            <ShieldAlert className="w-6 h-6 flex-shrink-0 text-amber-400 mt-0.5" />
+          <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-4 text-amber-300">
+            <ShieldAlert className="w-5 h-5 flex-shrink-0 text-amber-400 mt-0.5" />
             <div className="space-y-1">
-              <h3 className="font-bold text-white text-base">Account Verification Pending</h3>
-              <p className="text-xs text-amber-200/90 leading-relaxed">
+              <h3 className="font-semibold text-white text-sm">Account Verification Pending</h3>
+              <p className="text-xs text-amber-200/80 leading-relaxed">
                 Status: <span className="font-bold tracking-wide uppercase">{rider?.verificationStatus}</span>.
                 Our Mysuru administrative team is reviewing your vehicle details and documents. Once approved, you will be able to go online and receive instant delivery requests.
               </p>
@@ -225,21 +195,21 @@ export default function DashboardPage() {
 
         {/* Strikes Warning Banner */}
         {(summary?.activeStrikesCount ?? 0) > 0 && (
-          <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between text-rose-300">
+          <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between text-rose-300">
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-rose-400" />
               <div>
-                <p className="text-sm font-semibold text-rose-200">
+                <p className="text-xs font-semibold text-rose-200">
                   You have {summary?.activeStrikesCount} active strike(s)
                 </p>
-                <p className="text-xs text-rose-400">
+                <p className="text-[11px] text-rose-400">
                   Accounts with 3 strikes are automatically suspended. You can appeal in your profile.
                 </p>
               </div>
             </div>
             <Link
               href="/profile#strikes"
-              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 transition-colors"
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-200 transition-colors"
             >
               Review Strike
             </Link>
@@ -247,29 +217,29 @@ export default function DashboardPage() {
         )}
 
         {/* Main Status & Toggle Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+        <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="space-y-2">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <span
-                  className={`w-3.5 h-3.5 rounded-full ${
+                  className={`w-2.5 h-2.5 rounded-full ${
                     rider?.isAvailable
-                      ? "bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse"
-                      : "bg-slate-600"
+                      ? "bg-emerald-400 animate-pulse"
+                      : "bg-zinc-600"
                   }`}
                 />
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
                   Current Status
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
                 {rider?.isAvailable ? (
-                  <span className="text-emerald-400">Online & Ready to Deliver</span>
+                  <span>Online & Ready to Deliver</span>
                 ) : (
-                  <span className="text-slate-400">You are currently Offline</span>
+                  <span className="text-zinc-400">You are currently Offline</span>
                 )}
               </h1>
-              <p className="text-xs text-slate-400 max-w-md">
+              <p className="text-xs text-zinc-400 max-w-md">
                 {rider?.isAvailable
                   ? "Your GPS is transmitting to dispatch. Delivery offers in Mysuru will appear automatically."
                   : "Go online when you're ready to receive local pickup and drop-off requests."}
@@ -280,15 +250,15 @@ export default function DashboardPage() {
               <button
                 onClick={handleToggleOnline}
                 disabled={togglingStatus || !isApproved}
-                className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-sm transition-all shadow-xl cursor-pointer ${
+                className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
                   rider?.isAvailable
-                    ? "bg-slate-800 hover:bg-rose-500/20 hover:border-rose-500/40 text-rose-400 border border-slate-700"
+                    ? "bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/10"
                     : isApproved
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-500/25"
-                    : "bg-slate-800 text-slate-500 border border-slate-800 cursor-not-allowed"
+                    ? "bg-white text-zinc-950 hover:bg-zinc-200 font-bold shadow-sm"
+                    : "bg-white/[0.02] text-zinc-600 border border-white/5 cursor-not-allowed"
                 }`}
               >
-                <Power className={`w-5 h-5 ${togglingStatus ? "animate-spin" : ""}`} />
+                <Power className={`w-4 h-4 ${togglingStatus ? "animate-spin" : ""}`} />
                 <span>{rider?.isAvailable ? "Go Offline" : "Go Online"}</span>
               </button>
             </div>
@@ -297,22 +267,22 @@ export default function DashboardPage() {
 
         {/* Active Delivery Card (High Priority) */}
         {activeDelivery && (
-          <div className="bg-gradient-to-br from-emerald-950/60 to-slate-900 border-2 border-emerald-500/50 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-emerald-500/20 pb-4">
+          <div className="bg-white/[0.03] border border-white/[0.12] rounded-3xl p-6 shadow-2xl backdrop-blur-xl relative overflow-hidden space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                  <Package className="w-5 h-5 animate-bounce" />
+                <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
+                  <Package className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
                       Active Delivery Job
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                    <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] text-zinc-300 font-mono">
                       #{activeDelivery.trackingNumber || activeDelivery.id.slice(0, 8)}
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-base font-bold text-white mt-0.5">
                     Status: {activeDelivery.status.replace(/_/g, " ")}
                   </h3>
                 </div>
@@ -320,29 +290,29 @@ export default function DashboardPage() {
 
               <Link
                 href={`/delivery/${activeDelivery.id}`}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                className="px-5 py-2.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 font-semibold text-xs transition-colors flex items-center gap-2 shadow-sm"
               >
                 Continue Delivery
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
-                <MapPin className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-start gap-3">
+                <MapPin className="w-4 h-4 text-zinc-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-slate-400 block">Pickup:</span>
-                  <span className="text-slate-200">
+                  <span className="font-medium text-zinc-400 block text-[11px]">Pickup:</span>
+                  <span className="text-zinc-200 text-xs">
                     {activeDelivery.pickupContactName || "Store / Vendor"} - {activeDelivery.pickupAddress}
                   </span>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
-                <MapPin className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-start gap-3">
+                <MapPin className="w-4 h-4 text-zinc-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-slate-400 block">Dropoff:</span>
-                  <span className="text-slate-200">
+                  <span className="font-medium text-zinc-400 block text-[11px]">Dropoff:</span>
+                  <span className="text-zinc-200 text-xs">
                     {activeDelivery.dropoffContactName || "Customer"} - {activeDelivery.dropoffAddress}
                   </span>
                 </div>
@@ -353,23 +323,23 @@ export default function DashboardPage() {
 
         {/* Incoming Offers Card Notification */}
         {(summary?.pendingOffersCount ?? 0) > 0 && !activeDelivery && (
-          <div className="bg-blue-950/40 border-2 border-blue-500/50 rounded-3xl p-5 shadow-2xl flex items-center justify-between">
+          <div className="bg-white/[0.03] border border-white/10 rounded-3xl p-5 shadow-2xl backdrop-blur-xl flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+              <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
                 <Radio className="w-5 h-5 animate-pulse" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">
+                <p className="text-xs sm:text-sm font-bold text-white">
                   You have {summary?.pendingOffersCount} new delivery offer(s)!
                 </p>
-                <p className="text-xs text-blue-300/80">
+                <p className="text-[11px] text-zinc-400">
                   Review and accept before the dispatch timer expires.
                 </p>
               </div>
             </div>
             <Link
               href="/offers"
-              className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-500/20"
+              className="px-4 py-2 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
             >
               View Offers
               <ChevronRight className="w-4 h-4" />
@@ -380,55 +350,55 @@ export default function DashboardPage() {
         {/* Metric Cards Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Today Earnings */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Today&apos;s Earnings</span>
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider">Today&apos;s Earnings</span>
+              <TrendingUp className="w-4 h-4 text-zinc-300" />
             </div>
-            <p className="text-2xl font-black text-white">
+            <p className="text-2xl font-bold tracking-tight text-white">
               ₹{((summary?.todayEarnings ?? 0) / 100).toFixed(2)}
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">Paid directly to bank</p>
+            <p className="text-[11px] text-zinc-500 mt-1">Paid directly to bank</p>
           </div>
 
           {/* Today Deliveries */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Completed Today</span>
-              <CheckCircle2 className="w-4 h-4 text-teal-400" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider">Completed Today</span>
+              <CheckCircle2 className="w-4 h-4 text-zinc-300" />
             </div>
-            <p className="text-2xl font-black text-white">
+            <p className="text-2xl font-bold tracking-tight text-white">
               {summary?.todayCompletedCount ?? 0}
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-zinc-500 mt-1">
               Total lifetime: {summary?.totalCompletedCount ?? 0}
             </p>
           </div>
 
           {/* Rating */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Rating</span>
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider">Rating</span>
+              <Star className="w-4 h-4 text-zinc-300 fill-zinc-300" />
             </div>
-            <p className="text-2xl font-black text-white">
+            <p className="text-2xl font-bold tracking-tight text-white">
               {rider?.ratingAverage ? Number(rider.ratingAverage).toFixed(1) : "5.0"}
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-zinc-500 mt-1">
               Based on {rider?.ratingCount ?? 0} reviews
             </p>
           </div>
 
           {/* Vehicle Info */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Vehicle</span>
-              <Bike className="w-4 h-4 text-blue-400" />
+          <div className="bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl rounded-2xl p-5">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider">Vehicle</span>
+              <Bike className="w-4 h-4 text-zinc-300" />
             </div>
-            <p className="text-lg font-black text-white capitalize">
+            <p className="text-lg font-bold text-white capitalize">
               {rider?.vehicleType?.replace(/_/g, " ") || "Two Wheeler"}
             </p>
-            <p className="text-[11px] text-emerald-400 mt-1">Mysuru Fleet</p>
+            <p className="text-[11px] text-zinc-400 mt-1">Mysuru Fleet</p>
           </div>
         </div>
 
@@ -436,34 +406,34 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Link
             href="/offers"
-            className="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 flex flex-col items-center text-center gap-2 transition-all"
+            className="p-4 rounded-2xl bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.08] flex flex-col items-center text-center gap-2 transition-colors"
           >
-            <Radio className="w-5 h-5 text-emerald-400" />
-            <span className="text-xs font-bold text-slate-200">Delivery Offers</span>
+            <Radio className="w-5 h-5 text-zinc-300" />
+            <span className="text-xs font-medium text-zinc-200">Delivery Offers</span>
           </Link>
 
           <Link
             href="/earnings"
-            className="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 flex flex-col items-center text-center gap-2 transition-all"
+            className="p-4 rounded-2xl bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.08] flex flex-col items-center text-center gap-2 transition-colors"
           >
-            <TrendingUp className="w-5 h-5 text-teal-400" />
-            <span className="text-xs font-bold text-slate-200">Payout Ledger</span>
+            <TrendingUp className="w-5 h-5 text-zinc-300" />
+            <span className="text-xs font-medium text-zinc-200">Payout Ledger</span>
           </Link>
 
           <Link
             href="/history"
-            className="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 flex flex-col items-center text-center gap-2 transition-all"
+            className="p-4 rounded-2xl bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.08] flex flex-col items-center text-center gap-2 transition-colors"
           >
-            <Clock className="w-5 h-5 text-blue-400" />
-            <span className="text-xs font-bold text-slate-200">Past Orders</span>
+            <Clock className="w-5 h-5 text-zinc-300" />
+            <span className="text-xs font-medium text-zinc-200">Past Orders</span>
           </Link>
 
           <Link
             href="/support"
-            className="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 flex flex-col items-center text-center gap-2 transition-all"
+            className="p-4 rounded-2xl bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.08] flex flex-col items-center text-center gap-2 transition-colors"
           >
-            <Phone className="w-5 h-5 text-amber-400" />
-            <span className="text-xs font-bold text-slate-200">Dispatch Support</span>
+            <Phone className="w-5 h-5 text-zinc-300" />
+            <span className="text-xs font-medium text-zinc-200">Dispatch Support</span>
           </Link>
         </div>
       </main>

@@ -23,7 +23,7 @@ export function BottomNav({ hasActiveDelivery = false, offersCount = 0 }: Bottom
     },
     {
       label: "Active",
-      href: "/offers", // will redirect to active delivery in dashboard
+      href: "/offers",
       icon: Package,
       highlight: hasActiveDelivery,
     },
@@ -32,7 +32,7 @@ export function BottomNav({ hasActiveDelivery = false, offersCount = 0 }: Bottom
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 glass-panel border-t border-white/10 pb-safe shadow-2xl">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#07070a]/90 backdrop-blur-xl border-t border-white/[0.08] pb-safe shadow-2xl">
       <div className="grid grid-cols-5 h-16 items-center px-1">
         {items.map((item) => {
           const active = pathname === item.href;
@@ -43,13 +43,13 @@ export function BottomNav({ hasActiveDelivery = false, offersCount = 0 }: Bottom
               key={item.label}
               href={item.href}
               className={`flex flex-col items-center justify-center gap-1 py-1 transition-all ${
-                active ? "text-blue-400" : "text-white/40 hover:text-white/80"
+                active ? "text-white font-semibold" : "text-zinc-500 hover:text-zinc-200"
               }`}
             >
               <div className="relative">
-                <Icon className={`h-5 w-5 ${item.highlight ? "text-emerald-400 animate-pulse" : ""}`} />
+                <Icon className={`h-5 w-5 ${item.highlight ? "text-white animate-pulse" : ""}`} />
                 {item.badge && (
-                  <span className="absolute -top-1.5 -right-2 h-4 w-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center animate-bounce">
+                  <span className="absolute -top-1.5 -right-2 h-4 w-4 rounded-full bg-white text-zinc-950 text-[9px] font-bold flex items-center justify-center">
                     {item.badge}
                   </span>
                 )}
@@ -57,7 +57,7 @@ export function BottomNav({ hasActiveDelivery = false, offersCount = 0 }: Bottom
                   <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-black" />
                 )}
               </div>
-              <span className="text-[10px] font-medium tracking-tight">{item.label}</span>
+              <span className="text-[10px] tracking-tight">{item.label}</span>
             </Link>
           );
         })}
