@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Atlas Basket Seller",
+    "slug": "seller-mobile-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#07070a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.atlasbasket.seller"
+    },
+    "android": {
+      "package": "com.atlasbasket.seller",
+      "adaptiveIcon": {
+        "backgroundColor": "#07070a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sharing"
+    ]
+  }
+}
