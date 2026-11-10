@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deliveryApi } from "../api/deliveryApi";
 import {
@@ -41,12 +42,29 @@ import {
   CheckCircle2,
   XCircle,
   ShieldCheck,
+  ShieldOff,
+  ShieldAlert,
+  Ban,
   Building2,
   MapPin,
   RefreshCw,
   Send,
   Eye,
   FileText,
+  FileCheck,
+  ExternalLink,
+  ChevronRight,
+  MoreVertical,
+  Check,
+  X,
+  CreditCard,
+  Phone,
+  Mail,
+  AlertOctagon,
+  Calendar,
+  Award,
+  PlayCircle,
+  PauseCircle,
 } from "lucide-react";
 
 type DeliveryTab =
@@ -60,7 +78,15 @@ type DeliveryTab =
   | "support";
 
 export function DeliveryPage() {
-  const [tab, setTab] = useState<DeliveryTab>("overview");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as DeliveryTab) || "overview";
+  const [tab, setTab] = useState<DeliveryTab>(initialTab);
+
+  useEffect(() => {
+    const t = searchParams.get("tab") as DeliveryTab;
+    if (t) setTab(t);
+  }, [searchParams]);
+
   const queryClient = useQueryClient();
   const { showToast } = useUIStore();
 
@@ -70,6 +96,49 @@ export function DeliveryPage() {
   const [selectedRider, setSelectedRider] = useState<any | null>(null);
   const [showRiderModal, setShowRiderModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [riderModalTab, setRiderModalTab] = useState<"profile" | "documents" | "strikes" | "deliveries" | "payouts">("profile");
+
+  // General action modal (Suspend, Ban, Reactivate, Reject, Request Docs)
+  const [actionPromptModal, setActionPromptModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    actionType: "REJECT" | "REQUEST_DOCS" | "SUSPEND" | "BAN" | "REACTIVATE";
+    riderId: string;
+    riderName: string;
+    requireReason?: boolean;
+    confirmText?: string;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    actionType: "SUSPEND",
+    riderId: "",
+    riderName: "",
+    requireReason: true,
+    confirmText: "Confirm",
+  });
+  const [actionModalReason, setActionModalReason] = useState("");
+
+  // Issue Strike modal
+  const [showStrikeModal, setShowStrikeModal] = useState(false);
+  const [strikeRiderId, setStrikeRiderId] = useState("");
+  const [strikeRiderName, setStrikeRiderName] = useState("");
+  const [strikeCurrentCount, setStrikeCurrentCount] = useState(0);
+  const [strikeReason, setStrikeReason] = useState("");
+  const [strikeSeverity, setStrikeSeverity] = useState("MAJOR");
+
+  // Document reject modal
+  const [docRejectModal, setDocRejectModal] = useState<{
+    isOpen: boolean;
+    docId: string;
+    docName: string;
+  }>({
+    isOpen: false,
+    docId: "",
+    docName: "",
+  });
+  const [docRejectReason, setDocRejectReason] = useState("");
 
   const [jobFilter, setJobFilter] = useState("ALL");
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
@@ -112,6 +181,13 @@ export function DeliveryPage() {
       }),
     enabled: tab === "riders" || tab === "jobs",
   });
+
+  const { data: riderDetailData, isLoading: riderDetailLoading } = useQuery({
+    queryKey: ["delivery-rider-detail", selectedRider?.id],
+    queryFn: () => deliveryApi.getRiderDetail(selectedRider.id),
+    enabled: !!selectedRider?.id && showRiderModal,
+  });
+  const activeRider = riderDetailData?.rider || selectedRider;
 
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ["delivery-jobs", jobFilter],
@@ -184,27 +260,83 @@ export function DeliveryPage() {
   const verifyRiderMutation = useMutation({
     mutationFn: ({
       id,
-      status,
+      decision,
       rejectionReason,
     }: {
       id: string;
-      status: string;
+      decision: string;
       rejectionReason?: string;
-    }) => deliveryApi.verifyRider(id, { status, rejectionReason }),
-    onSuccess: () => {
+    }) => deliveryApi.verifyRider(id, { decision, rejectionReason }),
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["delivery-riders"] });
-      setShowRiderModal(false);
-      showToast("Rider verification status updated.", "info");
+      queryClient.invalidateQueries({ queryKey: ["delivery-rider-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["delivery-stats"] });
+      setActionPromptModal((prev) => ({ ...prev, isOpen: false }));
+      showToast(data?.message || "Rider verification updated.", "info");
     },
     onError: (e: any) => showToast(e.message, "error"),
   });
 
   const updateRiderStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      deliveryApi.updateRiderStatus(id, { status }),
+    mutationFn: ({ id, status, reason }: { id: string; status: string; reason?: string }) =>
+      deliveryApi.updateRiderStatus(id, { status, reason }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["delivery-riders"] });
+      queryClient.invalidateQueries({ queryKey: ["delivery-rider-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["delivery-stats"] });
+      setActionPromptModal((prev) => ({ ...prev, isOpen: false }));
       showToast("Rider account status updated.", "info");
+    },
+    onError: (e: any) => showToast(e.message, "error"),
+  });
+
+  const issueStrikeMutation = useMutation({
+    mutationFn: ({
+      riderId,
+      reason,
+      severity,
+    }: {
+      riderId: string;
+      reason: string;
+      severity?: string;
+    }) => deliveryApi.issueStrike(riderId, { reason, severity }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["delivery-riders"] });
+      queryClient.invalidateQueries({ queryKey: ["delivery-rider-detail"] });
+      setShowStrikeModal(false);
+      setStrikeReason("");
+      showToast(data?.message || "Disciplinary strike issued to rider.", "info");
+    },
+    onError: (e: any) => showToast(e.message, "error"),
+  });
+
+  const revokeStrikeMutation = useMutation({
+    mutationFn: ({ strikeId, reason }: { strikeId: string; reason?: string }) =>
+      deliveryApi.revokeStrike(strikeId, { reason }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["delivery-riders"] });
+      queryClient.invalidateQueries({ queryKey: ["delivery-rider-detail"] });
+      showToast(data?.message || "Strike revoked successfully.", "success");
+    },
+    onError: (e: any) => showToast(e.message, "error"),
+  });
+
+  const verifyDocMutation = useMutation({
+    mutationFn: ({
+      documentId,
+      status,
+      rejectionReason,
+    }: {
+      documentId: string;
+      status: "APPROVED" | "REJECTED";
+      rejectionReason?: string;
+    }) => deliveryApi.verifyDocument(documentId, { status, rejectionReason }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["delivery-rider-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["delivery-riders"] });
+      setDocRejectModal({ isOpen: false, docId: "", docName: "" });
+      setDocRejectReason("");
+      showToast(data?.message || "Document verification updated.", "info");
     },
     onError: (e: any) => showToast(e.message, "error"),
   });
@@ -213,11 +345,133 @@ export function DeliveryPage() {
     mutationFn: (id: string) => deliveryApi.deleteRiderAadhaar(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["delivery-riders"] });
-      setShowRiderModal(false);
+      queryClient.invalidateQueries({ queryKey: ["delivery-rider-detail"] });
       showToast("Aadhaar permanently deleted with zero trace.", "info");
     },
     onError: (e: any) => showToast(e.message, "error"),
   });
+
+  // Action helpers
+  const openApproveRider = (rider: any) => {
+    verifyRiderMutation.mutate({
+      id: rider.id,
+      decision: "APPROVED",
+    });
+  };
+
+  const openRejectRider = (rider: any) => {
+    setActionPromptModal({
+      isOpen: true,
+      title: `Reject Application: ${rider.firstName} ${rider.lastName}`,
+      description: "Specify the exact reason for rejecting this rider's application. The rider will be notified.",
+      actionType: "REJECT",
+      riderId: rider.id,
+      riderName: `${rider.firstName} ${rider.lastName}`,
+      requireReason: true,
+      confirmText: "Confirm Rejection",
+    });
+    setActionModalReason("");
+  };
+
+  const openRequestDocs = (rider: any) => {
+    setActionPromptModal({
+      isOpen: true,
+      title: `Request Additional Documents: ${rider.firstName} ${rider.lastName}`,
+      description: "Specify which documents or corrections are required (e.g. upload clear driving licence photo, valid vehicle insurance certificate).",
+      actionType: "REQUEST_DOCS",
+      riderId: rider.id,
+      riderName: `${rider.firstName} ${rider.lastName}`,
+      requireReason: true,
+      confirmText: "Request Resubmission",
+    });
+    setActionModalReason("");
+  };
+
+  const openSuspendRider = (rider: any) => {
+    setActionPromptModal({
+      isOpen: true,
+      title: `Suspend Delivery Agent: ${rider.firstName} ${rider.lastName}`,
+      description: "Suspending this rider immediately sets their account offline and revokes their dispatch assignment capability. Enter the suspension reason.",
+      actionType: "SUSPEND",
+      riderId: rider.id,
+      riderName: `${rider.firstName} ${rider.lastName}`,
+      requireReason: true,
+      confirmText: "Suspend Agent",
+    });
+    setActionModalReason("");
+  };
+
+  const openReactivateRider = (rider: any) => {
+    setActionPromptModal({
+      isOpen: true,
+      title: `Reactivate Delivery Agent: ${rider.firstName} ${rider.lastName}`,
+      description: "This will restore the delivery agent's account to ACTIVE status and allow them to take delivery assignments.",
+      actionType: "REACTIVATE",
+      riderId: rider.id,
+      riderName: `${rider.firstName} ${rider.lastName}`,
+      requireReason: false,
+      confirmText: "Reactivate Agent",
+    });
+    setActionModalReason("");
+  };
+
+  const openBanRider = (rider: any) => {
+    setActionPromptModal({
+      isOpen: true,
+      title: `Permanently Ban Delivery Agent: ${rider.firstName} ${rider.lastName}`,
+      description: "Are you sure? This permanently bans the delivery agent from the AtlasBasket delivery platform.",
+      actionType: "BAN",
+      riderId: rider.id,
+      riderName: `${rider.firstName} ${rider.lastName}`,
+      requireReason: true,
+      confirmText: "Ban Permanently",
+    });
+    setActionModalReason("");
+  };
+
+  const openIssueStrike = (rider: any) => {
+    setStrikeRiderId(rider.id);
+    setStrikeRiderName(`${rider.firstName} ${rider.lastName}`);
+    setStrikeCurrentCount(rider.strikeCount || 0);
+    setStrikeReason("");
+    setStrikeSeverity("MAJOR");
+    setShowStrikeModal(true);
+  };
+
+  const handleConfirmActionModal = () => {
+    const { actionType, riderId } = actionPromptModal;
+    if (actionType === "REJECT") {
+      verifyRiderMutation.mutate({
+        id: riderId,
+        decision: "REJECTED",
+        rejectionReason: actionModalReason || "Application criteria not met",
+      });
+    } else if (actionType === "REQUEST_DOCS") {
+      verifyRiderMutation.mutate({
+        id: riderId,
+        decision: "ACTION_REQUIRED",
+        rejectionReason: actionModalReason || "Please re-upload required documents",
+      });
+    } else if (actionType === "SUSPEND") {
+      updateRiderStatusMutation.mutate({
+        id: riderId,
+        status: "SUSPENDED",
+        reason: actionModalReason || "Suspended by administrator",
+      });
+    } else if (actionType === "BAN") {
+      updateRiderStatusMutation.mutate({
+        id: riderId,
+        status: "BANNED",
+        reason: actionModalReason || "Banned by administrator",
+      });
+    } else if (actionType === "REACTIVATE") {
+      updateRiderStatusMutation.mutate({
+        id: riderId,
+        status: "ACTIVE",
+        reason: actionModalReason || "Reactivated by administrator",
+      });
+    }
+  };
 
   const saveSettingsMutation = useMutation({
     mutationFn: (payload: any) => deliveryApi.updateSettings(payload),
@@ -467,10 +721,10 @@ export function DeliveryPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <CardTitle className="text-xs font-bold text-white/90">
-                  Rider Fleet Operations
+                  Rider Fleet Operations & Disciplinary Enforcement
                 </CardTitle>
                 <CardDescription>
-                  Review applications, verify documents, and enforce 3-strike policy
+                  Verify credentials, manage agent lifecycle (approve, suspend, ban), enforce 3-strike policy, and review compliance documents
                 </CardDescription>
               </div>
 
@@ -482,7 +736,7 @@ export function DeliveryPage() {
                     type="text"
                     value={riderSearch}
                     onChange={(e) => setRiderSearch(e.target.value)}
-                    placeholder="Search name, phone, email..."
+                    placeholder="Search name, phone, email, plate..."
                     className="pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-white/40 focus:outline-none"
                   />
                 </div>
@@ -492,11 +746,12 @@ export function DeliveryPage() {
                   onChange={(e) => setRiderFilter(e.target.value)}
                   className="bg-white/5 border border-white/10 rounded-lg text-xs text-white/80 py-1.5 px-2.5"
                 >
-                  <option value="ALL" className="bg-slate-900">All Statuses</option>
+                  <option value="ALL" className="bg-slate-900">All Statuses ({riders.length})</option>
                   <option value="PENDING" className="bg-slate-900">Pending Review</option>
+                  <option value="ACTION_REQUIRED" className="bg-slate-900">Action / Docs Required</option>
                   <option value="APPROVED" className="bg-slate-900">Approved Fleet</option>
                   <option value="SUSPENDED" className="bg-slate-900">Suspended / Strikes</option>
-                  <option value="BANNED" className="bg-slate-900">Banned</option>
+                  <option value="BANNED" className="bg-slate-900">Banned Agents</option>
                 </select>
               </div>
             </div>
@@ -511,78 +766,269 @@ export function DeliveryPage() {
               </div>
             ) : riders.length === 0 ? (
               <div className="text-center py-16 text-white/30 text-xs">
-                No riders match the selected filter
+                No delivery agents match the selected filter
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Rider Name</TableHead>
+                    <TableHead>Delivery Agent</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Vehicle & DL</TableHead>
-                    <TableHead>Masked Aadhaar</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Rating</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Verification</TableHead>
+                    <TableHead>Status & Strikes</TableHead>
+                    <TableHead>Rating & Deliveries</TableHead>
+                    <TableHead className="text-right">Admin Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {riders.map((r: any) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-semibold text-xs text-white/90">
-                        {r.firstName} {r.lastName}
-                        {r.isAvailable && (
-                          <span className="ml-2 inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-white/60">
-                        {r.phone} <br />
-                        <span className="text-[10px] text-white/40">{r.email}</span>
-                      </TableCell>
-                      <TableCell className="text-xs text-white/70 capitalize">
-                        {r.vehicleType?.replace(/_/g, " ")}
-                        <span className="block text-[10px] text-white/40">
-                          {r.vehicleType === "BICYCLE"
-                            ? "Exempt"
-                            : r.drivingLicenseNumber || "No DL provided"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-emerald-400">
-                        {r.aadhaarNumberMasked || "Purged / None"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            r.verificationStatus === "APPROVED"
-                              ? "default"
-                              : r.verificationStatus === "PENDING"
-                              ? "warning"
-                              : "destructive"
-                          }
-                          className="text-[9px]"
-                        >
-                          {r.verificationStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-amber-400 font-mono">
-                        ★ {r.ratingAverage ? Number(r.ratingAverage).toFixed(1) : "5.0"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs text-white/70 hover:text-white"
-                          onClick={() => {
-                            setSelectedRider(r);
-                            setShowRiderModal(true);
-                          }}
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1" />
-                          Review
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {riders.map((r: any) => {
+                    const isPending = r.verificationStatus === "PENDING" || r.verificationStatus === "ACTION_REQUIRED";
+                    const isApproved = r.verificationStatus === "APPROVED";
+                    const isActive = r.status === "ACTIVE";
+                    const isSuspended = r.status === "SUSPENDED" || r.verificationStatus === "SUSPENDED";
+                    const isBanned = r.status === "BANNED" || r.verificationStatus === "BANNED";
+                    const strikeCount = r.strikeCount || 0;
+
+                    return (
+                      <TableRow key={r.id} className="hover:bg-white/[0.02] transition-colors">
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-xs font-bold text-emerald-400 shrink-0">
+                              {r.firstName?.[0] || "R"}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-xs text-white/95">
+                                  {r.firstName} {r.lastName}
+                                </span>
+                                {r.isAvailable ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-medium">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Online
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[9px] text-white/30 font-medium">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+                                    Offline
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-white/40 font-mono">
+                                ID: #{r.id.slice(0, 8)}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-xs text-white/70">
+                          <div className="flex items-center gap-1 text-white/80">
+                            <Phone className="w-3 h-3 text-white/40" />
+                            <span>{r.phone}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] text-white/40 mt-0.5">
+                            <Mail className="w-3 h-3 text-white/30" />
+                            <span className="truncate max-w-[140px]">{r.email}</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-xs text-white/70">
+                          <span className="inline-block px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-bold uppercase text-white/80">
+                            {r.vehicleType?.replace(/_/g, " ") || "Bicycle"}
+                          </span>
+                          <span className="block text-[10px] text-white/40 font-mono mt-0.5">
+                            Plate: {r.vehicleNumber || "Exempt"}
+                          </span>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge
+                            variant={
+                              r.verificationStatus === "APPROVED"
+                                ? "default"
+                                : r.verificationStatus === "PENDING"
+                                ? "warning"
+                                : r.verificationStatus === "ACTION_REQUIRED"
+                                ? "outline"
+                                : "destructive"
+                            }
+                            className="text-[9px] font-bold"
+                          >
+                            {r.verificationStatus}
+                          </Badge>
+                          {r.rejectionReason && (
+                            <span className="block text-[9px] text-rose-400/80 truncate max-w-[120px] mt-0.5">
+                              {r.rejectionReason}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex flex-col gap-1 items-start">
+                            <Badge
+                              variant={
+                                isActive ? "default" : isSuspended ? "warning" : "destructive"
+                              }
+                              className="text-[9px]"
+                            >
+                              {isBanned ? "BANNED" : isSuspended ? "SUSPENDED" : "ACTIVE"}
+                            </Badge>
+
+                            <span
+                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                                strikeCount === 0
+                                  ? "text-white/40 border-white/5 bg-white/[0.02]"
+                                  : strikeCount === 1
+                                  ? "text-amber-400 border-amber-500/30 bg-amber-500/10 font-bold"
+                                  : strikeCount === 2
+                                  ? "text-orange-400 border-orange-500/30 bg-orange-500/10 font-bold"
+                                  : "text-rose-400 border-rose-500/40 bg-rose-500/10 font-black animate-pulse"
+                              }`}
+                            >
+                              {strikeCount === 0 ? "0/3 Strikes" : strikeCount >= 3 ? "🚨 3/3 STRIKES (BANNED)" : `⚠️ ${strikeCount}/3 Strikes`}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-xs">
+                          <span className="text-amber-400 font-mono font-bold">
+                            ★ {r.rating ? Number(r.rating).toFixed(1) : "5.0"}
+                          </span>
+                          <span className="block text-[10px] text-white/40 font-mono mt-0.5">
+                            {r.completedDeliveriesCount || r._count?.deliveries || 0} completed
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Primary Profile Review Button */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2.5 text-xs text-white/90 border-white/10 hover:bg-white/10"
+                              onClick={() => {
+                                setSelectedRider(r);
+                                setRiderModalTab("profile");
+                                setShowRiderModal(true);
+                              }}
+                              title="View full agent details and actions"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+                              Review
+                            </Button>
+
+                            {/* Inline Quick Actions */}
+                            {isPending && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                  onClick={() => openApproveRider(r)}
+                                  title="Quick Approve for Fleet"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                  onClick={() => openRequestDocs(r)}
+                                  title="Request Additional Documents"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                  onClick={() => openRejectRider(r)}
+                                  title="Reject Application"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </Button>
+                              </>
+                            )}
+
+                            {isApproved && (
+                              <>
+                                {isActive && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+                                      onClick={() => openSuspendRider(r)}
+                                      title="Suspend Delivery Agent"
+                                    >
+                                      <ShieldOff className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                      onClick={() => openIssueStrike(r)}
+                                      title="Issue Disciplinary Strike"
+                                    >
+                                      <AlertTriangle className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+
+                                {isSuspended && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                      onClick={() => openReactivateRider(r)}
+                                      title="Reactivate / Lift Suspension"
+                                    >
+                                      <ShieldCheck className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
+                                      onClick={() => openBanRider(r)}
+                                      title="Permanent Ban"
+                                    >
+                                      <Ban className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+
+                                {isBanned && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                    onClick={() => openReactivateRider(r)}
+                                    title="Unban and Reinstate"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+
+                            {/* Jump to Chat with this Rider */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                              onClick={() => {
+                                setTab("support");
+                              }}
+                              title="Message Rider in Support Inbox"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -1385,134 +1831,1026 @@ export function DeliveryPage() {
         </Card>
       )}
 
-      {/* ─── REVIEW RIDER MODAL ───────────────────────────────────────────────── */}
+      {/* ─── REVIEW & 360° AGENT MANAGEMENT MODAL ─────────────────────────── */}
       <Dialog
         isOpen={showRiderModal}
         onClose={() => setShowRiderModal(false)}
         title={
-          selectedRider
-            ? `Review Rider: ${selectedRider.firstName} ${selectedRider.lastName}`
-            : "Review Rider"
+          activeRider
+            ? `Delivery Agent: ${activeRider.firstName} ${activeRider.lastName}`
+            : "Delivery Agent Management"
         }
-        description="Verify vehicle eligibility, driving licence, and UIDAI masked identity documents"
-        maxWidth="max-w-[620px]"
+        description="Verify credentials, manage account status, review documents, and enforce 3-strike disciplinary policies"
+        maxWidth="max-w-4xl"
       >
-        {selectedRider && (
-          <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
-              <div>
-                <span className="text-white/40 block mb-0.5">Phone & Email</span>
-                <p className="text-white font-semibold">{selectedRider.phone}</p>
-                <p className="text-white/70">{selectedRider.email}</p>
+        {activeRider && (
+          <div className="space-y-5 text-xs">
+            {/* Top Status & Agent Hero Bar */}
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-lg font-black text-emerald-400 shrink-0">
+                  {activeRider.firstName?.[0] || "R"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white/95">
+                      {activeRider.firstName} {activeRider.lastName}
+                    </h3>
+                    <Badge
+                      variant={
+                        activeRider.status === "ACTIVE"
+                          ? "default"
+                          : activeRider.status === "SUSPENDED"
+                          ? "warning"
+                          : "destructive"
+                      }
+                      className="text-[10px] font-bold"
+                    >
+                      {activeRider.status}
+                    </Badge>
+                    <Badge
+                      variant={
+                        activeRider.verificationStatus === "APPROVED"
+                          ? "default"
+                          : activeRider.verificationStatus === "PENDING"
+                          ? "warning"
+                          : "destructive"
+                      }
+                      className="text-[10px]"
+                    >
+                      {activeRider.verificationStatus}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 mt-1 text-[11px] text-white/50">
+                    <span className="flex items-center gap-1 font-mono">
+                      <Phone className="w-3 h-3 text-white/30" /> {activeRider.phone}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Mail className="w-3 h-3 text-white/30" /> {activeRider.email}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1 text-amber-400 font-mono font-bold">
+                      ★ {activeRider.rating ? Number(activeRider.rating).toFixed(1) : "5.0"}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <span className="text-white/40 block mb-0.5">Vehicle Classification</span>
-                <p className="text-white font-semibold uppercase">{selectedRider.vehicleType}</p>
-                <p className="text-white/70">
-                  {selectedRider.vehicleType === "BICYCLE"
-                    ? "Bicycle (DL Exempt)"
-                    : `Plate: ${selectedRider.vehicleNumber || "Pending"}`}
-                </p>
-              </div>
+              {/* Status Chips */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-center">
+                  <span className="block text-[9px] text-white/40 uppercase font-bold tracking-wider">
+                    Strikes Count
+                  </span>
+                  <span
+                    className={`text-xs font-mono font-black ${
+                      (activeRider.strikeCount || 0) === 0
+                        ? "text-white/60"
+                        : (activeRider.strikeCount || 0) >= 3
+                        ? "text-rose-400 animate-pulse"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    {activeRider.strikeCount || 0} / 3 Strikes
+                  </span>
+                </div>
 
-              <div>
-                <span className="text-white/40 block mb-0.5">Aadhaar (Masked)</span>
-                <p className="font-mono text-emerald-400 font-bold">
-                  {selectedRider.aadhaarNumberMasked || "None / Purged"}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-white/40 block mb-0.5">Bank Payout Info</span>
-                <p className="text-white/80 font-mono">
-                  {selectedRider.bankName} • ••••{selectedRider.bankAccountNumber?.slice(-4)}
-                </p>
+                <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-center">
+                  <span className="block text-[9px] text-white/40 uppercase font-bold tracking-wider">
+                    Duty State
+                  </span>
+                  <span
+                    className={`text-xs font-bold ${
+                      activeRider.isAvailable ? "text-emerald-400" : "text-white/40"
+                    }`}
+                  >
+                    {activeRider.isAvailable ? "● Online" : "○ Offline"}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Aadhaar Zero-Trace Deletion Option */}
-            {selectedRider.aadhaarNumberMasked && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-rose-300 block">Permanent Aadhaar Purge</span>
-                  <p className="text-[10px] text-rose-400/80">
-                    Irrevocably erase raw identity records per UIDAI data privacy standards.
-                  </p>
-                </div>
+            {/* ─── PRIMARY ADMINISTRATIVE ACTIONS BAR ─────────────────────────── */}
+            <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Administrative Action Controls
+                </span>
+                <span className="text-[10px] text-white/30">Actions apply immediately with audit log</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {/* 1. Verification Actions */}
+                {activeRider.verificationStatus !== "APPROVED" && (
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-sm"
+                      isLoading={verifyRiderMutation.isPending}
+                      onClick={() => openApproveRider(activeRider)}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Approve Agent for Fleet
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-blue-400 border-blue-500/30 hover:bg-blue-500/10 text-xs gap-1.5"
+                      onClick={() => openRequestDocs(activeRider)}
+                    >
+                      <FileText className="w-4 h-4" />
+                      Request Additional Docs
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={() => openRejectRider(activeRider)}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Reject Application
+                    </Button>
+                  </>
+                )}
+
+                {/* 2. Account Lifecycle Actions */}
+                {activeRider.verificationStatus === "APPROVED" && (
+                  <>
+                    {activeRider.status === "ACTIVE" && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="h-8 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs gap-1.5"
+                          onClick={() => openSuspendRider(activeRider)}
+                        >
+                          <ShieldOff className="w-4 h-4" />
+                          Suspend Agent
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          className="h-8 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs gap-1.5"
+                          onClick={() => openIssueStrike(activeRider)}
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                          Issue Disciplinary Strike
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => openBanRider(activeRider)}
+                        >
+                          <Ban className="w-4 h-4" />
+                          Ban Agent Permanently
+                        </Button>
+                      </>
+                    )}
+
+                    {activeRider.status === "SUSPENDED" && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5"
+                          isLoading={updateRiderStatusMutation.isPending}
+                          onClick={() => openReactivateRider(activeRider)}
+                        >
+                          <ShieldCheck className="w-4 h-4" />
+                          Reactivate / Reinstate Agent
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          className="h-8 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs gap-1.5"
+                          onClick={() => openIssueStrike(activeRider)}
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                          Issue Additional Strike
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => openBanRider(activeRider)}
+                        >
+                          <Ban className="w-4 h-4" />
+                          Ban Agent Permanently
+                        </Button>
+                      </>
+                    )}
+
+                    {activeRider.status === "BANNED" && (
+                      <Button
+                        size="sm"
+                        className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5"
+                        isLoading={updateRiderStatusMutation.isPending}
+                        onClick={() => openReactivateRider(activeRider)}
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        Lift Ban & Reinstate Agent
+                      </Button>
+                    )}
+                  </>
+                )}
+
+                {/* 3. Direct Message Shortcut */}
                 <Button
                   size="sm"
-                  variant="destructive"
-                  className="h-7 text-[10px]"
-                  isLoading={deleteAadhaarMutation.isPending}
+                  variant="outline"
+                  className="h-8 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10 text-xs gap-1.5 ml-auto"
                   onClick={() => {
-                    if (confirm("Are you sure? This permanently deletes the rider's stored identity document.")) {
-                      deleteAadhaarMutation.mutate(selectedRider.id);
-                    }
+                    setShowRiderModal(false);
+                    setTab("support");
                   }}
                 >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Purge Aadhaar
+                  <MessageSquare className="w-4 h-4" />
+                  Chat in Support Inbox
                 </Button>
+              </div>
+            </div>
+
+            {/* Modal Internal Navigation Tabs */}
+            <div className="flex items-center gap-1 border-b border-white/10 pb-2">
+              {[
+                { id: "profile", label: "Profile & Vehicle", icon: Users },
+                {
+                  id: "documents",
+                  label: `KYC & Documents (${activeRider.documents?.length || 0})`,
+                  icon: FileCheck,
+                },
+                {
+                  id: "strikes",
+                  label: `Strikes & Enforcement (${activeRider.strikes?.length || 0})`,
+                  icon: AlertTriangle,
+                },
+                {
+                  id: "deliveries",
+                  label: `Delivery Jobs (${activeRider.deliveries?.length || activeRider.completedDeliveriesCount || 0})`,
+                  icon: Truck,
+                },
+                {
+                  id: "payouts",
+                  label: `Banking & Payouts (${activeRider.payouts?.length || 0})`,
+                  icon: DollarSign,
+                },
+              ].map((subTab) => {
+                const Icon = subTab.icon;
+                const active = riderModalTab === subTab.id;
+                return (
+                  <button
+                    key={subTab.id}
+                    onClick={() => setRiderModalTab(subTab.id as any)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      active
+                        ? "bg-white/10 text-white shadow-sm border border-white/10"
+                        : "text-white/40 hover:text-white/70"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{subTab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ─── MODAL TAB 1: PROFILE & VEHICLE ─────────────────────────────── */}
+            {riderModalTab === "profile" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Personal Identity Card */}
+                  <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center gap-1">
+                      <Users className="w-3 h-3 text-emerald-400" /> Personal Identity & Residence
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Full Name</span>
+                        <p className="font-semibold text-white/90">
+                          {activeRider.firstName} {activeRider.lastName}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Active District</span>
+                        <p className="font-semibold text-white/90">{activeRider.city || "Mysuru"}</p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Phone Number</span>
+                        <p className="font-mono text-white/90">{activeRider.phone}</p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Email Address</span>
+                        <p className="font-mono text-white/70 truncate">{activeRider.email}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-white/40 text-[10px] block">Residential Address</span>
+                        <p className="text-white/80">
+                          {activeRider.residentialAddress || "Not provided / Address on file"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Emergency Contact</span>
+                        <p className="text-white/70">
+                          {activeRider.emergencyContactName
+                            ? `${activeRider.emergencyContactName} (${activeRider.emergencyContactPhone || ""})`
+                            : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Registered On</span>
+                        <p className="text-white/70">
+                          {activeRider.createdAt
+                            ? new Date(activeRider.createdAt).toLocaleDateString()
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Vehicle & Driving Credentials Card */}
+                  <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center gap-1">
+                      <Truck className="w-3 h-3 text-blue-400" /> Vehicle & Driving Credentials
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Vehicle Classification</span>
+                        <span className="inline-block px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-bold uppercase text-white/90 mt-0.5">
+                          {activeRider.vehicleType?.replace(/_/g, " ") || "Bicycle"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Vehicle Plate Number</span>
+                        <p className="font-mono text-white/90 font-bold">
+                          {activeRider.vehicleNumber || "Exempt / Pending"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Driving Licence #</span>
+                        <p className="font-mono text-white/90">
+                          {activeRider.vehicleType === "BICYCLE"
+                            ? "DL Exempt (Bicycle)"
+                            : activeRider.licenseNumber || activeRider.drivingLicenseNumber || "Pending"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Vehicle RC Number</span>
+                        <p className="font-mono text-white/90">
+                          {activeRider.rcNumber || "Pending"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Insurance Policy #</span>
+                        <p className="font-mono text-white/90">
+                          {activeRider.insuranceNumber || "Pending"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[10px] block">Approval Timestamp</span>
+                        <p className="text-white/70">
+                          {activeRider.approvedAt
+                            ? new Date(activeRider.approvedAt).toLocaleDateString()
+                            : "Pending Admin Approval"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Metrics Snapshot */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    {
+                      label: "Customer Rating",
+                      value: `★ ${activeRider.rating ? Number(activeRider.rating).toFixed(1) : "5.0"}`,
+                      sub: `${activeRider.totalRatings || 0} reviews`,
+                      color: "text-amber-400",
+                    },
+                    {
+                      label: "Completed Jobs",
+                      value: activeRider.completedDeliveriesCount || activeRider._count?.deliveries || 0,
+                      sub: "100% verified drops",
+                      color: "text-emerald-400",
+                    },
+                    {
+                      label: "Cancelled Deliveries",
+                      value: activeRider.cancelledDeliveriesCount || 0,
+                      sub: "Acceptance dropoffs",
+                      color: "text-rose-400",
+                    },
+                    {
+                      label: "Active Disciplinary Strikes",
+                      value: `${activeRider.strikeCount || 0} / 3`,
+                      sub: (activeRider.strikeCount || 0) >= 3 ? "Auto-Suspended" : "Within quota",
+                      color: (activeRider.strikeCount || 0) >= 3 ? "text-rose-400" : "text-white/90",
+                    },
+                  ].map((m) => (
+                    <div
+                      key={m.label}
+                      className="p-3 rounded-2xl bg-white/[0.02] border border-white/10"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 block mb-1">
+                        {m.label}
+                      </span>
+                      <p className={`text-xl font-black font-mono ${m.color}`}>{m.value}</p>
+                      <p className="text-[10px] text-white/40 mt-0.5">{m.sub}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Rejection / Action required reason input */}
-            <div>
-              <label className="text-white/50 block mb-1">
-                Notes / Rejection Reason (if rejecting or requesting resubmission):
-              </label>
-              <input
-                type="text"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="e.g. Blurred driving licence photo"
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-xs"
-              />
-            </div>
+            {/* ─── MODAL TAB 2: KYC & DOCUMENTS VERIFICATION ───────────────────── */}
+            {riderModalTab === "documents" && (
+              <div className="space-y-4">
+                {/* Aadhaar Compliance Card */}
+                <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-xs">
+                        UIDAI Aadhaar Identity Verification
+                      </span>
+                      <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-500/30">
+                        UIDAI Compliant
+                      </Badge>
+                    </div>
+                    <p className="font-mono text-emerald-400 text-xs font-bold">
+                      Masked Number: {activeRider.aadhaarNumberMasked || "None provided / Purged"}
+                    </p>
+                    <p className="text-[10px] text-white/40">
+                      Raw document data is automatically shredded per Indian data protection standards.
+                    </p>
+                  </div>
 
-            <div className="pt-3 border-t border-white/10 flex flex-wrap gap-2 justify-end">
+                  {activeRider.aadhaarNumberMasked && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-8 text-xs shrink-0"
+                      isLoading={deleteAadhaarMutation.isPending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            "Are you sure you want to permanently purge this rider's Aadhaar records? This action cannot be reversed."
+                          )
+                        ) {
+                          deleteAadhaarMutation.mutate(activeRider.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Purge Aadhaar Record
+                    </Button>
+                  )}
+                </div>
+
+                {/* Uploaded Verification Documents */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 block">
+                    Mandatory Vehicle & Identity Documents
+                  </span>
+
+                  {(!activeRider.documents || activeRider.documents.length === 0) ? (
+                    <div className="p-8 text-center border border-white/5 rounded-2xl bg-white/[0.02] text-white/40 text-xs">
+                      No document uploads on file yet for this rider.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {activeRider.documents.map((doc: any) => {
+                        const isDocApproved = doc.status === "APPROVED";
+                        const isDocRejected = doc.status === "REJECTED";
+
+                        return (
+                          <div
+                            key={doc.id}
+                            className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2.5"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="font-bold text-white/90 block">
+                                  {doc.documentType?.replace(/_/g, " ")}
+                                </span>
+                                {doc.documentNumber && (
+                                  <span className="font-mono text-[10px] text-white/50 block">
+                                    Number: {doc.documentNumber}
+                                  </span>
+                                )}
+                              </div>
+                              <Badge
+                                variant={
+                                  isDocApproved
+                                    ? "default"
+                                    : isDocRejected
+                                    ? "destructive"
+                                    : "warning"
+                                }
+                                className="text-[9px]"
+                              >
+                                {doc.status}
+                              </Badge>
+                            </div>
+
+                            {doc.rejectionReason && (
+                              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300">
+                                <strong>Rejection Reason:</strong> {doc.rejectionReason}
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                              {doc.documentUrl ? (
+                                <a
+                                  href={doc.documentUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold"
+                                >
+                                  <ExternalLink className="w-3 h-3" /> View Uploaded Document
+                                </a>
+                              ) : (
+                                <span className="text-[10px] text-white/30 italic">
+                                  No file attached
+                                </span>
+                              )}
+
+                              <div className="flex items-center gap-1.5">
+                                {!isDocApproved && (
+                                  <Button
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                                    isLoading={verifyDocMutation.isPending}
+                                    onClick={() =>
+                                      verifyDocMutation.mutate({
+                                        documentId: doc.id,
+                                        status: "APPROVED",
+                                      })
+                                    }
+                                  >
+                                    <Check className="w-3 h-3 mr-0.5" /> Approve
+                                  </Button>
+                                )}
+                                {!isDocRejected && (
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="h-6 px-2 text-[10px]"
+                                    onClick={() => {
+                                      setDocRejectModal({
+                                        isOpen: true,
+                                        docId: doc.id,
+                                        docName: doc.documentType?.replace(/_/g, " "),
+                                      });
+                                      setDocRejectReason("");
+                                    }}
+                                  >
+                                    <X className="w-3 h-3 mr-0.5" /> Reject
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ─── MODAL TAB 3: STRIKES & DISCIPLINARY RECORD ─────────────────── */}
+            {riderModalTab === "strikes" && (
+              <div className="space-y-4">
+                {/* Strike Policy Banner */}
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-rose-300 text-xs flex items-center gap-1.5">
+                      <AlertOctagon className="w-4 h-4 text-rose-400" />
+                      AtlasBasket 3-Strike Disciplinary Policy
+                    </span>
+                    <p className="text-[11px] text-rose-300/80">
+                      Strike 1: First formal warning. Strike 2: Second warning. Strike 3: Automatic fleet suspension & order dispatch ban.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-8 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shrink-0 gap-1.5"
+                    onClick={() => openIssueStrike(activeRider)}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Issue Formal Strike
+                  </Button>
+                </div>
+
+                {/* Strikes Table */}
+                {(!activeRider.strikes || activeRider.strikes.length === 0) ? (
+                  <div className="p-8 text-center border border-white/5 rounded-2xl bg-white/[0.02] text-white/40 text-xs">
+                    Clean disciplinary record. Zero strikes issued to this delivery agent.
+                  </div>
+                ) : (
+                  <div className="border border-white/10 rounded-2xl overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Strike #</TableHead>
+                          <TableHead>Violation Reason</TableHead>
+                          <TableHead>Issued Date</TableHead>
+                          <TableHead>Appeal Status</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {activeRider.strikes.map((s: any) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="font-mono font-bold text-xs text-rose-400">
+                              Strike #{s.strikeNumber}
+                            </TableCell>
+                            <TableCell className="text-xs text-white/80 max-w-sm">
+                              {s.reason}
+                            </TableCell>
+                            <TableCell className="text-xs text-white/50">
+                              {new Date(s.createdAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              {s.isRevoked ? (
+                                <Badge variant="outline" className="text-emerald-400 border-emerald-500/30 text-[9px]">
+                                  Revoked / Forgiven
+                                </Badge>
+                              ) : s.isAppealed ? (
+                                <Badge variant="warning" className="text-[9px]">
+                                  Appealed ({s.appealStatus || "PENDING"})
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="text-[9px]">
+                                  Active Strike
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {!s.isRevoked && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-[10px] text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                                  isLoading={revokeStrikeMutation.isPending}
+                                  onClick={() => {
+                                    if (confirm("Revoke this strike? If the rider was suspended due to 3 strikes, this will restore them to active status.")) {
+                                      revokeStrikeMutation.mutate({ strikeId: s.id });
+                                    }
+                                  }}
+                                >
+                                  Revoke Strike
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── MODAL TAB 4: DELIVERY JOBS HISTORY ─────────────────────────── */}
+            {riderModalTab === "deliveries" && (
+              <div className="space-y-4">
+                {(!activeRider.deliveries || activeRider.deliveries.length === 0) ? (
+                  <div className="p-8 text-center border border-white/5 rounded-2xl bg-white/[0.02] text-white/40 text-xs">
+                    No delivery jobs completed yet by this agent.
+                  </div>
+                ) : (
+                  <div className="border border-white/10 rounded-2xl overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tracking #</TableHead>
+                          <TableHead>Store Pickup</TableHead>
+                          <TableHead>Customer Dropoff</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Rider Payout</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {activeRider.deliveries.map((d: any) => (
+                          <TableRow key={d.id}>
+                            <TableCell className="font-mono text-xs text-emerald-400">
+                              #{d.deliveryNumber || d.trackingNumber || d.id.slice(0, 8)}
+                            </TableCell>
+                            <TableCell className="text-xs text-white/70 max-w-[160px] truncate">
+                              {d.pickupContactName || "Store"} - {d.pickupAddress}
+                            </TableCell>
+                            <TableCell className="text-xs text-white/70 max-w-[160px] truncate">
+                              {d.dropoffContactName || "Customer"} - {d.dropoffAddress}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[9px]">
+                                {d.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs font-bold text-white/90">
+                              ₹{((d.riderPayoutPaise || d.riderPayoutAmountPaise || 0) / 100).toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── MODAL TAB 5: BANKING & PAYOUTS ─────────────────────────────── */}
+            {riderModalTab === "payouts" && (
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center gap-1">
+                    <CreditCard className="w-3 h-3 text-teal-400" /> Electronic Bank Account for Disbursals
+                  </span>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <span className="text-white/40 text-[10px] block">Beneficiary Name</span>
+                      <p className="font-semibold text-white/90">{activeRider.bankAccountName || `${activeRider.firstName} ${activeRider.lastName}`}</p>
+                    </div>
+                    <div>
+                      <span className="text-white/40 text-[10px] block">Account Number</span>
+                      <p className="font-mono text-white/90">
+                        {activeRider.bankAccountNumber ? `••••${activeRider.bankAccountNumber.slice(-4)}` : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-white/40 text-[10px] block">IFSC Code</span>
+                      <p className="font-mono text-white/90">{activeRider.bankIfsc || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-white/40 text-[10px] block">UPI VPA</span>
+                      <p className="font-mono text-emerald-400">{activeRider.upiId || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+                    Disbursal Records
+                  </span>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                    onClick={() => {
+                      setPayoutRiderId(activeRider.id);
+                      setPayoutAmountPaise(50000);
+                      setPayoutUtr("");
+                      setShowPayoutModal(true);
+                    }}
+                  >
+                    Record Bank Payout
+                  </Button>
+                </div>
+
+                {(!activeRider.payouts || activeRider.payouts.length === 0) ? (
+                  <div className="p-6 text-center border border-white/5 rounded-2xl bg-white/[0.02] text-white/40 text-xs">
+                    Zero payouts recorded for this agent.
+                  </div>
+                ) : (
+                  <div className="border border-white/10 rounded-2xl overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Bank Reference / UTR</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Settled Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {activeRider.payouts.map((po: any) => (
+                          <TableRow key={po.id}>
+                            <TableCell className="font-mono text-xs font-bold text-emerald-400">
+                              ₹{(po.netAmountPaise / 100).toFixed(2)}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-white/60">
+                              {po.paymentReference || "—"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="default" className="text-[9px]">
+                                {po.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-white/40 font-mono">
+                              {new Date(po.createdAt).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bottom Modal Actions */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <span className="text-[10px] text-white/30 font-mono">
+                System Agent ID: {activeRider.id}
+              </span>
               <Button
                 variant="outline"
                 size="sm"
                 className="text-xs"
                 onClick={() => setShowRiderModal(false)}
               >
-                Close
-              </Button>
-
-              <Button
-                variant="destructive"
-                size="sm"
-                className="text-xs"
-                isLoading={verifyRiderMutation.isPending}
-                onClick={() =>
-                  verifyRiderMutation.mutate({
-                    id: selectedRider.id,
-                    status: "REJECTED",
-                    rejectionReason: rejectionReason || "Incomplete documentation",
-                  })
-                }
-              >
-                Reject Application
-              </Button>
-
-              <Button
-                size="sm"
-                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
-                isLoading={verifyRiderMutation.isPending}
-                onClick={() =>
-                  verifyRiderMutation.mutate({
-                    id: selectedRider.id,
-                    status: "APPROVED",
-                  })
-                }
-              >
-                Approve for Mysuru Fleet
+                Close Profile
               </Button>
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* ─── GENERAL ACTION REASON PROMPT MODAL ──────────────────────────────── */}
+      <Dialog
+        isOpen={actionPromptModal.isOpen}
+        onClose={() => setActionPromptModal((prev) => ({ ...prev, isOpen: false }))}
+        title={actionPromptModal.title}
+        description={actionPromptModal.description}
+      >
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="text-white/60 block mb-1">
+              {actionPromptModal.actionType === "REQUEST_DOCS"
+                ? "Document / Correction Details (Required):"
+                : actionPromptModal.actionType === "SUSPEND"
+                ? "Reason for Suspension (Required):"
+                : actionPromptModal.actionType === "BAN"
+                ? "Reason for Debarment (Required):"
+                : "Action Reason (Required):"}
+            </label>
+            <textarea
+              rows={3}
+              required
+              value={actionModalReason}
+              onChange={(e) => setActionModalReason(e.target.value)}
+              placeholder={
+                actionPromptModal.actionType === "REQUEST_DOCS"
+                  ? "e.g. Please re-upload a clear driving licence photo and current vehicle insurance certificate."
+                  : actionPromptModal.actionType === "SUSPEND"
+                  ? "e.g. Multiple customer complaints of late deliveries and package damage."
+                  : actionPromptModal.actionType === "BAN"
+                  ? "e.g. Gross misconduct and multiple policy violations."
+                  : "Enter detailed reason..."
+              }
+              className="w-full p-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-white/20"
+            />
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActionPromptModal((prev) => ({ ...prev, isOpen: false }))}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={actionPromptModal.requireReason && !actionModalReason.trim()}
+              isLoading={
+                verifyRiderMutation.isPending || updateRiderStatusMutation.isPending
+              }
+              onClick={handleConfirmActionModal}
+              className={
+                actionPromptModal.actionType === "BAN"
+                  ? "bg-rose-600 hover:bg-rose-500 text-white font-bold"
+                  : actionPromptModal.actionType === "SUSPEND"
+                  ? "bg-amber-600 hover:bg-amber-500 text-white font-bold"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+              }
+            >
+              {actionPromptModal.confirmText || "Confirm"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── ISSUE DISCIPLINARY STRIKE MODAL ─────────────────────────────────── */}
+      <Dialog
+        isOpen={showStrikeModal}
+        onClose={() => setShowStrikeModal(false)}
+        title={`Issue Disciplinary Strike: ${strikeRiderName}`}
+        description="Formal disciplinary strikes are recorded against the delivery agent. 3 strikes will result in automatic suspension."
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300">
+            <span className="font-bold block">Current Strike Standing:</span>
+            <p className="text-[11px] mt-0.5">
+              Agent currently has <strong>{strikeCurrentCount} / 3 strikes</strong>.
+              {strikeCurrentCount >= 2 && (
+                <span className="text-rose-400 font-bold block mt-1">
+                  ⚠️ WARNING: Issuing this strike will trigger automatic fleet suspension under the 3-strike policy!
+                </span>
+              )}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-white/60 block mb-1">Incident / Severity Category:</label>
+            <select
+              value={strikeSeverity}
+              onChange={(e) => setStrikeSeverity(e.target.value)}
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-xs"
+            >
+              <option value="POLICY_VIOLATION" className="bg-slate-900">Policy Violation (General)</option>
+              <option value="CUSTOMER_DISPUTE" className="bg-slate-900">Customer Dispute / Rude Behavior</option>
+              <option value="ORDER_CANCELLATION" className="bg-slate-900">Excessive / Unjustified Cancellation</option>
+              <option value="ITEM_DAMAGE" className="bg-slate-900">Confirmed Item Damage</option>
+              <option value="UNAUTHORIZED_SUBSTITUTE" className="bg-slate-900">Unauthorized Substitute Driver</option>
+              <option value="CRITICAL_MISCONDUCT" className="bg-slate-900">Critical Safety or Theft Violation</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-white/60 block mb-1">
+              Detailed Reason & Evidence Summary (Required):
+            </label>
+            <textarea
+              rows={3}
+              required
+              value={strikeReason}
+              onChange={(e) => setStrikeReason(e.target.value)}
+              placeholder="e.g. Failed to verify dropoff OTP and abandoned customer package at wrong address."
+              className="w-full p-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-xs"
+            />
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowStrikeModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!strikeReason.trim()}
+              isLoading={issueStrikeMutation.isPending}
+              onClick={() =>
+                issueStrikeMutation.mutate({
+                  riderId: strikeRiderId,
+                  reason: strikeReason,
+                  severity: strikeSeverity,
+                })
+              }
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold"
+            >
+              Issue Strike #{strikeCurrentCount + 1}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── DOCUMENT REJECTION MODAL ────────────────────────────────────────── */}
+      <Dialog
+        isOpen={docRejectModal.isOpen}
+        onClose={() => setDocRejectModal({ isOpen: false, docId: "", docName: "" })}
+        title={`Reject Document: ${docRejectModal.docName}`}
+        description="Explain why this document cannot be approved so the delivery agent can upload a valid replacement."
+      >
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="text-white/60 block mb-1">Rejection Reason:</label>
+            <input
+              type="text"
+              required
+              value={docRejectReason}
+              onChange={(e) => setDocRejectReason(e.target.value)}
+              placeholder="e.g. Expired driving licence, blurred photo, or name mismatch"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-xs"
+            />
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDocRejectModal({ isOpen: false, docId: "", docName: "" })}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!docRejectReason.trim()}
+              isLoading={verifyDocMutation.isPending}
+              onClick={() =>
+                verifyDocMutation.mutate({
+                  documentId: docRejectModal.docId,
+                  status: "REJECTED",
+                  rejectionReason: docRejectReason,
+                })
+              }
+            >
+              Confirm Document Rejection
+            </Button>
+          </div>
+        </div>
       </Dialog>
 
       {/* ─── MANUAL ASSIGN RIDER MODAL ────────────────────────────────────────── */}

@@ -56,19 +56,50 @@ export const deliveryApi = {
     const response = await axiosInstance.get(`/api/admin/delivery/riders/${id}`);
     return response.data;
   },
-  verifyRider: async (id: string, payload: { status: string; rejectionReason?: string }) => {
-    const response = await axiosInstance.post(`/api/admin/delivery/riders/${id}/verify`, payload);
+  verifyRider: async (
+    id: string,
+    payload: {
+      decision?: string;
+      status?: string;
+      rejectionReason?: string;
+      reason?: string;
+      documentApprovals?: Array<{ id: string; status: string; rejectionReason?: string }>;
+    }
+  ) => {
+    const response = await axiosInstance.post(`/api/admin/delivery/riders/${id}/verify`, {
+      decision: payload.decision || payload.status,
+      rejectionReason: payload.rejectionReason || payload.reason,
+      documentApprovals: payload.documentApprovals,
+    });
     return response.data;
   },
   updateRiderStatus: async (id: string, payload: { status: string; reason?: string }) => {
     const response = await axiosInstance.post(`/api/admin/delivery/riders/${id}/status`, payload);
     return response.data;
   },
+  issueStrike: async (
+    riderId: string,
+    payload: { reason: string; severity?: string; incidentId?: string }
+  ) => {
+    const response = await axiosInstance.post(`/api/admin/delivery/riders/${riderId}/strikes`, payload);
+    return response.data;
+  },
+  revokeStrike: async (strikeId: string, payload?: { reason?: string }) => {
+    const response = await axiosInstance.post(`/api/admin/delivery/strikes/${strikeId}/revoke`, payload || {});
+    return response.data;
+  },
+  verifyDocument: async (
+    documentId: string,
+    payload: { status: "APPROVED" | "REJECTED" | "PENDING"; rejectionReason?: string }
+  ) => {
+    const response = await axiosInstance.post(`/api/admin/delivery/documents/${documentId}/verify`, payload);
+    return response.data;
+  },
   deleteRiderAadhaar: async (id: string) => {
     const response = await axiosInstance.delete(`/api/admin/delivery/riders/${id}/aadhaar`);
     return response.data;
   },
-  getJobs: async (params?: { page?: number; limit?: number; status?: string }) => {
+  getJobs: async (params?: { page?: number; limit?: number; status?: string; riderId?: string; search?: string }) => {
     const response = await axiosInstance.get('/api/admin/delivery/jobs', { params });
     return response.data;
   },
@@ -76,8 +107,11 @@ export const deliveryApi = {
     const response = await axiosInstance.get(`/api/admin/delivery/jobs/${id}`);
     return response.data;
   },
-  manualAssignRider: async (id: string, deliveryPartnerId: string) => {
-    const response = await axiosInstance.post(`/api/admin/delivery/jobs/${id}/assign`, { deliveryPartnerId });
+  manualAssignRider: async (id: string, riderId: string) => {
+    const response = await axiosInstance.post(`/api/admin/delivery/jobs/${id}/assign`, {
+      riderId,
+      deliveryPartnerId: riderId,
+    });
     return response.data;
   },
   adminCancelJob: async (id: string, reason: string) => {
@@ -96,12 +130,32 @@ export const deliveryApi = {
     const response = await axiosInstance.get('/api/admin/delivery/incidents');
     return response.data;
   },
-  resolveIncident: async (id: string, payload: { status: string; faultPenaltyPaise?: number; resolutionNotes?: string }) => {
+  resolveIncident: async (
+    id: string,
+    payload: {
+      decision?: "CONFIRMED" | "DISMISSED";
+      status?: string;
+      adminNotes?: string;
+      resolutionNotes?: string;
+      applyPenalty?: boolean;
+      faultPenaltyPaise?: number;
+      issueStrike?: boolean;
+    }
+  ) => {
     const response = await axiosInstance.post(`/api/admin/delivery/incidents/${id}/resolve`, payload);
     return response.data;
   },
-  reviewStrikeAppeal: async (id: string, payload: { decision: "UPHELD" | "OVERTURNED"; reviewNotes?: string }) => {
-    const response = await axiosInstance.post(`/api/admin/delivery/strikes/${id}/appeal`, payload);
+  reviewStrikeAppeal: async (
+    id: string,
+    payload: { decision?: "UPHELD" | "OVERTURNED"; approved?: boolean; reviewNotes?: string; notes?: string }
+  ) => {
+    const approved = typeof payload.approved !== "undefined"
+      ? payload.approved
+      : payload.decision === "OVERTURNED";
+    const response = await axiosInstance.post(`/api/admin/delivery/strikes/${id}/appeal`, {
+      approved,
+      notes: payload.notes || payload.reviewNotes,
+    });
     return response.data;
   },
   getConversations: async () => {

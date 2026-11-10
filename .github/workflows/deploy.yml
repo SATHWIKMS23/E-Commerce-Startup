@@ -91,7 +91,7 @@ jobs:
           fi
           echo "[OK] Host IP $HOST_BIND_IP verified on VM network interfaces."
 
-      - name: Execute Safe Production Deployment
+      - name: Execute Safe Production Deployment & Database Migration
         env:
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_REF: ${{ github.ref }}
@@ -99,4 +99,5 @@ jobs:
         run: |
           chmod +x backend/scripts/deploy.sh
           chmod +x backend/scripts/rollback.sh
+          chmod +x backend/scripts/migrate.sh
           bash backend/scripts/deploy.sh

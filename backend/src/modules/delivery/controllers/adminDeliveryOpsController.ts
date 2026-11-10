@@ -211,7 +211,9 @@ export const verifyRider = async (req: Request, res: Response) => {
   try {
     const adminId = (req as any).adminId || "admin";
     const id = String(req.params.id);
-    const { decision, rejectionReason, documentApprovals } = req.body;
+    const decision = req.body.decision || req.body.status;
+    const rejectionReason = req.body.rejectionReason || req.body.reason;
+    const documentApprovals = req.body.documentApprovals;
 
     if (decision !== "APPROVED" && decision !== "REJECTED" && decision !== "ACTION_REQUIRED") {
       return res.status(400).json({ message: "Invalid decision. Must be APPROVED, REJECTED, or ACTION_REQUIRED." });
@@ -228,9 +230,10 @@ export const verifyRider = async (req: Request, res: Response) => {
         where: { id },
         data: {
           verificationStatus: decision,
-          rejectionReason: decision === "REJECTED" ? rejectionReason : null,
+          rejectionReason: decision === "REJECTED" || decision === "ACTION_REQUIRED" ? rejectionReason : null,
           verifiedByAdminId: adminId,
           approvedAt: decision === "APPROVED" ? now : null,
+          status: decision === "APPROVED" ? "ACTIVE" : undefined,
         },
       });
 
@@ -257,7 +260,7 @@ export const verifyRider = async (req: Request, res: Response) => {
           settingKey: `RIDER_VERIFICATION_${id}`,
           previousValue: "PENDING",
           newValue: decision,
-          reason: decision === "REJECTED" ? rejectionReason : "Approved by administrator",
+          reason: rejectionReason || `Rider ${decision.toLowerCase()} by administrator`,
         },
       });
 
@@ -280,16 +283,18 @@ export const updateRiderStatus = async (req: Request, res: Response) => {
     const id = String(req.params.id);
     const { status, reason } = req.body;
 
-    if (status !== "ACTIVE" && status !== "SUSPENDED" && status !== "BANNED") {
-      return res.status(400).json({ message: "Status must be ACTIVE, SUSPENDED, or BANNED." });
+    if (status !== "ACTIVE" && status !== "SUSPENDED" && status !== "BANNED" && status !== "INACTIVE") {
+      return res.status(400).json({ message: "Status must be ACTIVE, SUSPENDED, BANNED, or INACTIVE." });
     }
+
+    const isSuspendedOrBanned = status === "SUSPENDED" || status === "BANNED";
 
     const updated = await prisma.deliveryPartner.update({
       where: { id },
       data: {
         status: status === "BANNED" ? "SUSPENDED" : status,
-        verificationStatus: status === "BANNED" ? "BANNED" : undefined,
-        isAvailable: status !== "ACTIVE" ? false : undefined,
+        verificationStatus: status === "BANNED" ? "BANNED" : status === "SUSPENDED" ? "SUSPENDED" : status === "ACTIVE" ? "APPROVED" : undefined,
+        isAvailable: isSuspendedOrBanned ? false : undefined,
       },
     });
 
@@ -306,6 +311,169 @@ export const updateRiderStatus = async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, rider: RiderAuthService.sanitizeRiderProfile(updated) });
   } catch (err: any) {
     return res.status(400).json({ success: false, message: err?.message || "Failed to update status" });
+  }
+};
+
+export const issueRiderStrike = async (req: Request, res: Response) => {
+  try {
+    const adminId = (req as any).adminId || "admin";
+    const id = String(req.params.id);
+    const { reason, severity, incidentId } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: "Strike reason is required." });
+    }
+
+    const rider = await prisma.deliveryPartner.findUnique({
+      where: { id },
+      include: {
+        strikes: { where: { isRevoked: false } },
+      },
+    });
+
+    if (!rider) return res.status(404).json({ message: "Rider not found" });
+
+    const currentStrikesCount = rider.strikes.length;
+    const newStrikeNumber = currentStrikesCount + 1;
+    const settings = await DeliverySettingsService.getEffectiveSettings();
+    const maxStrikes = Number(settings.maxStrikesBeforeBan || 3);
+
+    const formattedReason = severity ? `[${severity}] ${reason.trim()}` : reason.trim();
+
+    const strike = await prisma.riderStrike.create({
+      data: {
+        deliveryPartnerId: id,
+        incidentId: incidentId || null,
+        strikeNumber: newStrikeNumber,
+        reason: formattedReason,
+        issuedByAdminId: adminId,
+      },
+    });
+
+    const shouldSuspend = newStrikeNumber >= maxStrikes;
+
+    const updatedRider = await prisma.deliveryPartner.update({
+      where: { id },
+      data: {
+        strikeCount: newStrikeNumber,
+        status: shouldSuspend ? "SUSPENDED" : undefined,
+        verificationStatus: shouldSuspend ? "SUSPENDED" : undefined,
+        isAvailable: shouldSuspend ? false : undefined,
+      },
+    });
+
+    await prisma.deliverySettingsAuditLog.create({
+      data: {
+        adminId,
+        settingKey: `RIDER_STRIKE_${id}`,
+        previousValue: `${currentStrikesCount} strikes`,
+        newValue: `Strike #${newStrikeNumber}: ${formattedReason}`,
+        reason: shouldSuspend ? `Auto-suspended: reached ${newStrikeNumber}/${maxStrikes} strikes` : formattedReason,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: shouldSuspend
+        ? `Strike #${newStrikeNumber} issued. Rider has reached ${maxStrikes} strikes and has been suspended.`
+        : `Strike #${newStrikeNumber} issued to rider.`,
+      strike,
+      rider: RiderAuthService.sanitizeRiderProfile(updatedRider),
+    });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, message: err?.message || "Failed to issue strike" });
+  }
+};
+
+export const revokeRiderStrike = async (req: Request, res: Response) => {
+  try {
+    const adminId = (req as any).adminId || "admin";
+    const strikeId = String(req.params.id);
+    const { reason } = req.body;
+
+    const strike = await prisma.riderStrike.findUnique({
+      where: { id: strikeId },
+    });
+
+    if (!strike) return res.status(404).json({ message: "Strike not found" });
+
+    const now = new Date();
+    await prisma.riderStrike.update({
+      where: { id: strikeId },
+      data: {
+        isRevoked: true,
+        revokedAt: now,
+        appealStatus: "APPROVED",
+        appealDecidedByAdminId: adminId,
+        appealDecidedAt: now,
+      },
+    });
+
+    const activeStrikes = await prisma.riderStrike.count({
+      where: {
+        deliveryPartnerId: strike.deliveryPartnerId,
+        isRevoked: false,
+      },
+    });
+
+    const settings = await DeliverySettingsService.getEffectiveSettings();
+    const maxStrikes = Number(settings.maxStrikesBeforeBan || 3);
+    const shouldReinstate = activeStrikes < maxStrikes;
+
+    const updatedRider = await prisma.deliveryPartner.update({
+      where: { id: strike.deliveryPartnerId },
+      data: {
+        strikeCount: activeStrikes,
+        status: shouldReinstate ? "ACTIVE" : undefined,
+        verificationStatus: shouldReinstate ? "APPROVED" : undefined,
+      },
+    });
+
+    await prisma.deliverySettingsAuditLog.create({
+      data: {
+        adminId,
+        settingKey: `RIDER_STRIKE_REVOKED_${strike.deliveryPartnerId}`,
+        previousValue: `Strike #${strike.strikeNumber}`,
+        newValue: "REVOKED",
+        reason: reason || "Strike revoked by administrator",
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: shouldReinstate
+        ? "Strike revoked. Rider reinstated to active status."
+        : "Strike revoked.",
+      rider: RiderAuthService.sanitizeRiderProfile(updatedRider),
+    });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, message: err?.message || "Failed to revoke strike" });
+  }
+};
+
+export const verifyRiderDocument = async (req: Request, res: Response) => {
+  try {
+    const adminId = (req as any).adminId || "admin";
+    const documentId = String(req.params.id);
+    const { status, rejectionReason } = req.body;
+
+    if (status !== "APPROVED" && status !== "REJECTED" && status !== "PENDING") {
+      return res.status(400).json({ message: "Status must be APPROVED, REJECTED, or PENDING" });
+    }
+
+    const doc = await prisma.riderDocument.update({
+      where: { id: documentId },
+      data: {
+        status,
+        rejectionReason: status === "REJECTED" ? rejectionReason : null,
+        verifiedByAdminId: adminId,
+        verifiedAt: new Date(),
+      },
+    });
+
+    return res.status(200).json({ success: true, message: `Document marked as ${status}.`, document: doc });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, message: err?.message || "Failed to update document" });
   }
 };
 
@@ -425,7 +593,7 @@ export const manualAssignRider = async (req: Request, res: Response) => {
   try {
     const adminId = (req as any).adminId || "admin";
     const id = String(req.params.id);
-    const { riderId } = req.body;
+    const riderId = req.body.riderId || req.body.deliveryPartnerId;
 
     if (!riderId) return res.status(400).json({ message: "riderId required" });
 
@@ -526,19 +694,19 @@ export const resolveIncident = async (req: Request, res: Response) => {
   try {
     const adminId = (req as any).adminId || "admin";
     const id = String(req.params.id);
-    const { decision, adminNotes, applyPenalty, issueStrike } = req.body;
-
-    if (!decision || (decision !== "CONFIRMED" && decision !== "DISMISSED")) {
-      return res.status(400).json({ message: "decision must be CONFIRMED or DISMISSED" });
-    }
+    const rawDecision = req.body.decision || req.body.status;
+    const decision = rawDecision === "CONFIRMED" ? "CONFIRMED" : rawDecision === "DISMISSED" ? "DISMISSED" : "CONFIRMED";
+    const adminNotes = req.body.adminNotes || req.body.resolutionNotes || "Resolved by administrator";
+    const applyPenalty = typeof req.body.applyPenalty !== "undefined" ? Boolean(req.body.applyPenalty) : Boolean(req.body.faultPenaltyPaise);
+    const issueStrike = typeof req.body.issueStrike !== "undefined" ? Boolean(req.body.issueStrike) : true;
 
     const resolved = await DeliveryIncidentService.resolveIncidentByAdmin({
       incidentId: id,
       adminId,
       decision,
-      adminNotes: adminNotes || "Resolved by administrator",
-      applyPenalty: Boolean(applyPenalty),
-      issueStrike: Boolean(issueStrike),
+      adminNotes,
+      applyPenalty,
+      issueStrike,
     });
 
     return res.status(200).json({
@@ -555,12 +723,15 @@ export const reviewStrikeAppeal = async (req: Request, res: Response) => {
   try {
     const adminId = (req as any).adminId || "admin";
     const id = String(req.params.id);
-    const { approved, notes } = req.body;
+    const approved = typeof req.body.approved !== "undefined"
+      ? Boolean(req.body.approved)
+      : req.body.decision === "OVERTURNED" || req.body.decision === "APPROVED";
+    const notes = req.body.notes || req.body.reviewNotes;
 
     const result = await DeliveryIncidentService.reviewAppealByAdmin(
       id,
       adminId,
-      Boolean(approved),
+      approved,
       notes
     );
 

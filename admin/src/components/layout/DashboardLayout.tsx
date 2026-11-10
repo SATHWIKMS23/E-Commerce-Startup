@@ -181,8 +181,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     // Orders
     { name: 'Orders', path: '/orders', icon: ShoppingBag, group: 'Orders', permission: 'orders.view' },
     { name: 'Returns', path: '/returns', icon: RotateCcw, group: 'Orders', permission: 'orders.view' },
-    { name: 'Delivery', path: '/delivery', icon: Truck, group: 'Orders', permission: 'delivery.view' },
     { name: 'Packing Fee Requests', path: '/packing-fee-requests', icon: CreditCard, group: 'Orders', permission: 'orders.view' },
+
+    // Delivery Management
+    { name: 'Delivery Fleet & Operations', path: '/delivery', icon: Truck, group: 'Delivery Fleet', permission: 'delivery.view' },
 
     // Catalog & Content
     { name: 'Products', path: '/products', icon: Box, group: 'Catalog & Content', permission: 'moderation.view' },

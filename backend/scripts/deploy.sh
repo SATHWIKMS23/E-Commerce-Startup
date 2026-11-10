@@ -366,14 +366,40 @@ done
 if [ -d "${VM_REPO_PATH}" ] && [ "$(realpath "${REPO_ROOT}")" != "$(realpath "${VM_REPO_PATH}")" ]; then
   log_info "Syncing updated compose specification to ${VM_REPO_PATH}..."
   mkdir -p "${VM_REPO_PATH}/backend/scripts"
+  mkdir -p "${VM_REPO_PATH}/backend/prisma"
   cp "${COMPOSE_FILE}" "${VM_REPO_PATH}/backend/compose.vm.yml" 2>/dev/null || true
   cp "${SCRIPT_DIR}/deploy.sh" "${VM_REPO_PATH}/backend/scripts/deploy.sh" 2>/dev/null || true
   if [ -f "${SCRIPT_DIR}/rollback.sh" ]; then
     cp "${SCRIPT_DIR}/rollback.sh" "${VM_REPO_PATH}/backend/scripts/rollback.sh" 2>/dev/null || true
   fi
+  if [ -f "${SCRIPT_DIR}/migrate.sh" ]; then
+    cp "${SCRIPT_DIR}/migrate.sh" "${VM_REPO_PATH}/backend/scripts/migrate.sh" 2>/dev/null || true
+  fi
+  if [ -d "${BACKEND_DIR}/prisma" ]; then
+    cp -r "${BACKEND_DIR}/prisma/"* "${VM_REPO_PATH}/backend/prisma/" 2>/dev/null || true
+  fi
   chmod +x "${VM_REPO_PATH}/backend/scripts/"*.sh 2>/dev/null || true
-  log_ok "VM app repository compose specification synchronized."
+  log_ok "VM app repository compose specification and migrations synchronized."
 fi
+
+# ------------------------------------------------------------------------------
+# 7.5. Apply Pending Prisma Production Database Migrations
+# ------------------------------------------------------------------------------
+echo "--------------------------------------------------------------------"
+log_info "Running production Prisma database migrations..."
+
+if [ -f "${SCRIPT_DIR}/migrate.sh" ]; then
+  chmod +x "${SCRIPT_DIR}/migrate.sh"
+  if ! bash "${SCRIPT_DIR}/migrate.sh"; then
+    log_err "CRITICAL: Database migration failed! Aborting deployment to protect production data."
+    log_err "Running production containers are 100% UNTOUCHED and fully functional."
+    exit 1
+  fi
+else
+  log_err "CRITICAL: Migration script missing at ${SCRIPT_DIR}/migrate.sh!"
+  exit 1
+fi
+log_ok "Production database schema is up to date and verified healthy."
 
 # ------------------------------------------------------------------------------
 # 8. Deliberate Container Migration & Measured Downtime Rollout

@@ -88,6 +88,18 @@ services:
     networks:
       - atlasbasket-vm-net
 
+  migration-runner:
+    image: atlasbasket-customer-api:${IMAGE_TAG:-latest}
+    restart: "no"
+    profiles:
+      - tools
+    env_file:
+      - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
+    volumes:
+      - ./prisma:/app/prisma:ro
+    networks:
+      - atlasbasket-vm-net
+
 networks:
   atlasbasket-vm-net:
     external: true
