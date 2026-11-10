@@ -207,6 +207,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { name: 'Roles & Permissions', path: '/roles', icon: KeyRound, group: 'Administration', permission: 'admin.roles.manage' },
     { name: 'Customer Branding', path: '/customer-branding', icon: Palette, group: 'Administration', permission: 'branding.view' },
     { name: 'Seller Branding', path: '/seller-branding', icon: Store, group: 'Administration', permission: 'branding.view' },
+    { name: 'Delivery Branding', path: '/delivery-branding', icon: Truck, group: 'Administration', permission: 'branding.view' },
     { name: 'Settings', path: '/settings', icon: Settings, group: 'Administration', permission: 'settings.view' },
     { name: 'My Profile', path: '/profile', icon: UserCircle, group: 'Administration' },
   ];

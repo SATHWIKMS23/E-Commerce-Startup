@@ -137,6 +137,9 @@ model ExternalDeliveryShop {
 
 model DeliveryGlobalSetting {
   id                           Int      @id @default(1)
+  brandName                    String   @default("AtlasBasket Delivery")
+  brandLogoUrl                 String?
+  brandTagline                 String?  @default("Local Delivery Fleet")
   riderPayoutPercentage        Decimal  @default(90.00) @db.Decimal(5, 2)
   platformCommissionPercentage Decimal  @default(10.00) @db.Decimal(5, 2)
   baseChargePaise              Int      @default(3000) // ₹30
@@ -150,8 +153,37 @@ model DeliveryGlobalSetting {
   damagePenaltyPercentage      Decimal  @default(20.00) @db.Decimal(5, 2)
   maxStrikesBeforeBan          Int      @default(3)
   activeCity                   String   @default("Mysuru")
+  activeCities                 String[] @default(["Mysuru"])
   supportedVehicles            String[] @default(["BICYCLE", "MOTORCYCLE", "SCOOTER", "EV"])
   isDeliveryServiceEnabled     Boolean  @default(true)
+
+  // Landing Page Hero & Card Controls (Admin Synced)
+  heroBadgeText                String?  @default("Now Launching Across Mysuru City")
+  heroHeadingLine1             String?  @default("Deliver locally.")
+  heroHeadingLine2             String?  @default("Earn directly with every trip.")
+  heroDescription              String?  @default("Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.")
+
+  // 4 Landing Stat Cards: Controlled by Admin with Toggle On/Off & Value
+  showCardPayout               Boolean  @default(true)
+  cardPayoutValue              String   @default("~90%")
+  cardPayoutLabel              String   @default("Rider Payout")
+  cardPayoutDesc               String   @default("Direct earnings share")
+
+  showCardCity                 Boolean  @default(true)
+  cardCityValue                String   @default("Mysuru")
+  cardCityLabel                String   @default("Active City")
+  cardCityDesc                 String   @default("Local delivery zones")
+
+  showCardFee                  Boolean  @default(true)
+  cardFeeValue                 String   @default("₹0 Free")
+  cardFeeLabel                 String   @default("Registration Fee")
+  cardFeeDesc                  String   @default("No upfront fees")
+
+  showCardVehicles             Boolean  @default(true)
+  cardVehiclesValue            String   @default("Bikes & EVs")
+  cardVehiclesLabel            String   @default("Vehicles Welcome")
+  cardVehiclesDesc             String   @default("Bicycles welcome")
+
   updatedByAdminId             String?
   updatedAt                    DateTime @updatedAt
 

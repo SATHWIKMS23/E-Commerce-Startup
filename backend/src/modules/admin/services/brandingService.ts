@@ -48,9 +48,43 @@ export interface BrandingConfiguration {
     updatedBy: string;
 }
 
-export type BrandingApp = "CUSTOMER" | "SELLER";
+export type BrandingApp = "CUSTOMER" | "SELLER" | "DELIVERY";
 
 const appDefaults: Record<BrandingApp, BrandingConfiguration> = {
+    DELIVERY: {
+        name: "AtlasBasket Delivery",
+        marketplaceName: "AtlasBasket",
+        brandName: "AtlasBasket Delivery",
+        logo: "",
+        favicon: "",
+        tagline: "Local Delivery Fleet",
+        shortName: "Delivery",
+        logoUrl: "",
+        faviconUrl: "",
+        darkLogoUrl: "",
+        lightLogoUrl: "",
+        brandDescription: "On-demand local delivery network in Mysuru.",
+        customerTitle: "AtlasBasket Delivery",
+        sellerPortalTitle: "AtlasBasket Delivery",
+        sellerPortalTagline: "Local Delivery Fleet",
+        heroBadge: "Now Launching Across Mysuru City",
+        heroHeadingLine1: "Deliver locally.",
+        heroHeadingLine2: "Earn directly with every trip.",
+        heroHeadingLine3: "In Mysuru.",
+        heroDescription:
+            "Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.",
+        searchPlaceholder: "Search delivery zones…",
+        exploreShopsButtonText: "Register as a Rider",
+        browseProductsButtonText: "Rider Sign In",
+        footerDescription: "Reliable on-demand local deliveries across Mysuru.",
+        seoTitle: "AtlasBasket Delivery",
+        seoDescription: "On-demand local delivery network in Mysuru.",
+        browserTitle: "AtlasBasket Delivery",
+        primaryColor: "#000000",
+        secondaryColor: "#ffffff",
+        updatedAt: new Date(0).toISOString(),
+        updatedBy: "system"
+    },
     CUSTOMER: {
         name: "Sante Marketplace",
         marketplaceName: "Sante Marketplace",
@@ -153,8 +187,51 @@ export const getBrandingConfiguration = async (
         return cached.value;
     }
 
-    const row = await prisma.marketplaceBranding.findUnique({ where: { app } });
     const defaults = appDefaults[app];
+
+    if (app === "DELIVERY") {
+        const { DeliverySettingsService } = await import("../../delivery/services/deliverySettings.service.js");
+        const ds = await DeliverySettingsService.getEffectiveSettings();
+        const brandName = str(ds.brandName, defaults.brandName);
+        const logoUrl = cleanAssetUrl(ds.brandLogoUrl) || "";
+        const config: BrandingConfiguration = {
+            name: brandName,
+            marketplaceName: "AtlasBasket",
+            brandName,
+            logo: logoUrl,
+            favicon: logoUrl,
+            logoUrl,
+            faviconUrl: logoUrl,
+            darkLogoUrl: logoUrl,
+            lightLogoUrl: logoUrl,
+            tagline: str(ds.brandTagline, defaults.tagline),
+            shortName: "Delivery",
+            brandDescription: defaults.brandDescription!,
+            customerTitle: brandName,
+            sellerPortalTitle: brandName,
+            sellerPortalTagline: str(ds.brandTagline, defaults.tagline),
+            heroBadge: str(ds.heroBadgeText, defaults.heroBadge),
+            heroHeadingLine1: str(ds.heroHeadingLine1, defaults.heroHeadingLine1),
+            heroHeadingLine2: str(ds.heroHeadingLine2, defaults.heroHeadingLine2),
+            heroHeadingLine3: defaults.heroHeadingLine3,
+            heroDescription: str(ds.heroDescription, defaults.heroDescription),
+            searchPlaceholder: defaults.searchPlaceholder,
+            exploreShopsButtonText: defaults.exploreShopsButtonText,
+            browseProductsButtonText: defaults.browseProductsButtonText,
+            footerDescription: defaults.footerDescription,
+            seoTitle: brandName,
+            seoDescription: defaults.seoDescription,
+            browserTitle: brandName,
+            primaryColor: "#000000",
+            secondaryColor: "#ffffff",
+            updatedAt: ds.updatedAt ? new Date(ds.updatedAt).toISOString() : new Date().toISOString(),
+            updatedBy: "admin"
+        };
+        brandingCache.set(cacheKey, { value: config, expiresAt: Date.now() + CACHE_TTL_MS });
+        return config;
+    }
+
+    const row = await prisma.marketplaceBranding.findUnique({ where: { app } }).catch(() => null);
 
     if (app === "SELLER") {
         const sellerRow = row || ({} as any);
@@ -316,8 +393,28 @@ export const saveBranding = async (
     adminId?: string,
     app: BrandingApp = "CUSTOMER"
 ): Promise<BrandingConfiguration> => {
-    const existingRow = await prisma.marketplaceBranding.findUnique({ where: { app } });
     const defaults = appDefaults[app];
+
+    if (app === "DELIVERY") {
+        const { DeliverySettingsService } = await import("../../delivery/services/deliverySettings.service.js");
+        const brandName = str(pick(input.brandName, input.name), defaults.brandName);
+        const brandLogoUrl = pick(input.logoUrl, input.logo) || null;
+        const brandTagline = str(pick(input.tagline), defaults.tagline);
+        await DeliverySettingsService.updateSettings(adminId || "admin", {
+            brandName,
+            brandLogoUrl: brandLogoUrl ? String(brandLogoUrl) : null,
+            brandTagline,
+            heroBadgeText: input.heroBadge,
+            heroHeadingLine1: input.heroHeadingLine1,
+            heroHeadingLine2: input.heroHeadingLine2,
+            heroDescription: input.heroDescription,
+            ...(input as any),
+        });
+        invalidateBrandingCache("DELIVERY");
+        return getBrandingConfiguration("DELIVERY");
+    }
+
+    const existingRow = await prisma.marketplaceBranding.findUnique({ where: { app } }).catch(() => null);
 
     const brandName = str(
         pick(input.brandName, input.name, input.marketplaceName),
@@ -468,6 +565,10 @@ export const saveBranding = async (
 
 /** Admin-facing payload for the specified application row */
 export const getBrandingSettings = async (app: BrandingApp = "CUSTOMER") => {
+    if (app === "DELIVERY") {
+        const branding = await getBrandingConfiguration("DELIVERY");
+        return { branding };
+    }
     const [branding, row] = await Promise.all([
         getBrandingConfiguration(app),
         prisma.marketplaceBranding.findUnique({ where: { app } })

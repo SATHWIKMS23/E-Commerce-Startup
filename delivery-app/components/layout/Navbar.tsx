@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Truck, Bell, LogOut, ShieldCheck, ShieldAlert, User, Menu, X } from "lucide-react";
+import { Truck, LogOut, User, Menu, X, Power } from "lucide-react";
 import { apiClient } from "@/lib/apiClient";
-import type { RiderProfile } from "@/types/delivery";
 
 interface NavbarProps {
   rider?: any;
@@ -18,15 +17,48 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
 
+  // Synced branding from Admin
+  const [branding, setBranding] = useState<{
+    brandName: string;
+    brandLogoUrl: string | null;
+    brandTagline: string;
+    activeCity: string;
+  }>({
+    brandName: "AtlasBasket Delivery",
+    brandLogoUrl: null,
+    brandTagline: "Local Delivery Fleet",
+    activeCity: "Mysuru",
+  });
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiClient
+      .get("/api/delivery/settings/public")
+      .then((res) => {
+        if (isMounted && res.data?.settings) {
+          const s = res.data.settings;
+          setBranding({
+            brandName: s.brandName || "AtlasBasket Delivery",
+            brandLogoUrl: s.brandLogoUrl || null,
+            brandTagline: s.brandTagline || "Local Delivery Fleet",
+            activeCity: s.activeCity || "Mysuru",
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleLogout = async () => {
     try {
       await apiClient.post("/api/delivery/auth/logout");
-      localStorage.removeItem("delivery_partner_token");
-      router.push("/login");
-    } catch {
-      localStorage.removeItem("delivery_partner_token");
-      router.push("/login");
-    }
+    } catch {}
+    localStorage.removeItem("delivery_partner_token");
+    localStorage.removeItem("delivery_partner_rider");
+    router.push("/login");
   };
 
   const handleToggle = async () => {
@@ -37,7 +69,7 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
       const res = await apiClient.post("/api/delivery/availability", {
         isAvailable: nextState,
       });
-      if (res.data.success && onAvailabilityToggle) {
+      if (res.data?.success && onAvailabilityToggle) {
         onAvailabilityToggle(nextState);
       }
     } catch (err: any) {
@@ -55,23 +87,41 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
     { label: "Support", href: "/support" },
   ];
 
+  const hasValidLogo = Boolean(!logoError && branding.brandLogoUrl && branding.brandLogoUrl.trim() !== "");
+
   return (
-    <header className="sticky top-0 z-50 w-full glass-panel border-b border-white/5">
+    <header className="sticky top-0 z-50 w-full bg-[#07070a]/90 backdrop-blur-md border-b border-white/[0.08]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand Logo */}
-        <Link href={rider ? "/dashboard" : "/"} className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-lg shadow-blue-500/10">
-            <Truck className="h-5 w-5" />
-          </div>
+        {/* Brand Logo & Title (Synced with Admin) */}
+        <Link href={rider ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
+          {hasValidLogo ? (
+            <img
+              src={branding.brandLogoUrl!}
+              alt={branding.brandName}
+              className="h-8 w-8 object-contain rounded-lg"
+              onError={() => setLogoError(true)}
+            />
+          ) : (
+            <div className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white">
+              <Truck className="h-4 w-4" />
+            </div>
+          )}
           <div>
-            <span className="font-extrabold text-base tracking-tight text-white flex items-center gap-1.5">
-              AtlasBasket <span className="text-blue-400 font-semibold text-xs px-1.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20">Delivery</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm tracking-tight text-white group-hover:text-white/90 transition-colors">
+                {branding.brandName}
+              </span>
+              <span className="text-[10px] font-medium text-white/50 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.03]">
+                Delivery
+              </span>
+            </div>
+            <span className="text-[10px] text-white/40 block font-mono -mt-0.5">
+              {branding.activeCity} Fleet
             </span>
-            <span className="text-[10px] text-white/40 block -mt-1 font-mono">Mysuru Fleet</span>
           </div>
         </Link>
 
-        {/* Desktop Navigation Links */}
+        {/* Desktop Navigation Links (Authenticated) */}
         {rider && (
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => {
@@ -80,9 +130,9 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     active
-                      ? "bg-white/10 text-white border border-white/10"
+                      ? "bg-white/10 text-white"
                       : "text-white/60 hover:text-white hover:bg-white/5"
                   }`}
                 >
@@ -94,59 +144,45 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
         )}
 
         {/* Right Action Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {rider ? (
             <>
               {/* Online/Offline Toggle Button */}
-              {rider.verificationStatus === "APPROVED" ? (
-                <button
-                  type="button"
-                  onClick={handleToggle}
-                  disabled={isToggling}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                    rider.isAvailable
-                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-lg shadow-emerald-500/10"
-                      : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      rider.isAvailable ? "bg-emerald-400 animate-pulse" : "bg-white/30"
-                    }`}
-                  />
-                  <span>{rider.isAvailable ? "ONLINE" : "OFFLINE"}</span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-semibold">
-                  <ShieldAlert className="h-3 w-3" />
-                  <span>Pending Approval</span>
-                </div>
-              )}
+              <button
+                onClick={handleToggle}
+                disabled={isToggling}
+                className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                  rider.isAvailable
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+                }`}
+              >
+                <Power className={`h-3.5 w-3.5 ${isToggling ? "animate-spin" : ""}`} />
+                <span>{rider.isAvailable ? "Online" : "Offline"}</span>
+              </button>
 
               {/* Profile Link */}
               <Link
                 href="/profile"
-                className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all"
-                title="Profile & Documents"
+                className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/80 hover:text-white transition-colors"
+                title="Profile"
               >
                 <User className="h-4 w-4" />
               </Link>
 
-              {/* Logout */}
+              {/* Logout Button */}
               <button
-                type="button"
                 onClick={handleLogout}
-                className="hidden sm:flex h-9 w-9 rounded-xl bg-white/5 border border-white/10 items-center justify-center text-white/50 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
-                title="Sign Out"
+                className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors cursor-pointer"
+                title="Logout"
               >
                 <LogOut className="h-4 w-4" />
               </button>
 
-              {/* Mobile Menu Button */}
+              {/* Mobile menu trigger */}
               <button
-                type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/80 cursor-pointer"
+                className="md:hidden h-8 w-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/80"
               >
                 {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </button>
@@ -155,13 +191,13 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white/80 hover:text-white transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:text-white transition-colors"
               >
                 Log In
               </Link>
               <Link
                 href="/register"
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition-all"
+                className="px-3.5 py-1.5 rounded-lg bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm"
               >
                 Become a Rider
               </Link>
@@ -171,26 +207,27 @@ export function Navbar({ rider, onAvailabilityToggle }: NavbarProps) {
       </div>
 
       {/* Mobile Drawer Menu */}
-      {rider && mobileMenuOpen && (
-        <div className="md:hidden glass-panel border-t border-white/5 px-4 pt-3 pb-4 space-y-2 animate-fade-in">
+      {mobileMenuOpen && rider && (
+        <div className="md:hidden border-t border-white/10 bg-[#07070a]/95 backdrop-blur-xl px-4 py-3 space-y-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-xl text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+              className="block px-3 py-2 rounded-lg text-xs font-medium text-white/70 hover:text-white hover:bg-white/5"
             >
               {link.label}
             </Link>
           ))}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 flex items-center gap-2"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span>Sign Out</span>
-          </button>
+          <div className="pt-2 border-t border-white/10">
+            <button
+              onClick={handleToggle}
+              className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 text-white/80"
+            >
+              <Power className="h-4 w-4" />
+              <span>{rider.isAvailable ? "Set Status: Offline" : "Set Status: Online"}</span>
+            </button>
+          </div>
         </div>
       )}
     </header>

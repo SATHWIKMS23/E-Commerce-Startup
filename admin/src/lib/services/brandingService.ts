@@ -49,7 +49,7 @@ export interface BrandingConfig {
   updatedBy?: string;
 }
 
-export type BrandingApp = 'customer' | 'seller';
+export type BrandingApp = 'customer' | 'seller' | 'delivery';
 
 export const DEFAULT_BRANDING: BrandingConfig = {
   name: 'Marketplace',
@@ -89,6 +89,29 @@ export const DEFAULT_SELLER_BRANDING: BrandingConfig = {
   browserTitle: 'Seller Portal',
   primaryColor: '#7C3AED',
   secondaryColor: '#4F46E5',
+};
+
+export const DEFAULT_DELIVERY_BRANDING: BrandingConfig = {
+  ...DEFAULT_BRANDING,
+  name: 'AtlasBasket Delivery',
+  marketplaceName: 'AtlasBasket',
+  brandName: 'AtlasBasket Delivery',
+  tagline: 'Local Delivery Fleet',
+  shortName: 'Delivery',
+  heroBadge: 'Now Launching Across Mysuru City',
+  heroHeadingLine1: 'Deliver locally.',
+  heroHeadingLine2: 'Earn directly with every trip.',
+  heroHeadingLine3: 'In Mysuru.',
+  heroDescription:
+    'Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.',
+  searchPlaceholder: 'Search delivery zones…',
+  exploreShopsButtonText: 'Register as a Rider',
+  browseProductsButtonText: 'Rider Sign In',
+  seoTitle: 'AtlasBasket Delivery',
+  seoDescription: 'On-demand local delivery network in Mysuru.',
+  browserTitle: 'AtlasBasket Delivery',
+  primaryColor: '#000000',
+  secondaryColor: '#ffffff',
 };
 
 const str = (value: unknown, fallback?: string | null): string =>
@@ -151,7 +174,12 @@ export const fetchBranding = async (
   client: AxiosInstance,
   app: BrandingApp = 'customer'
 ): Promise<BrandingConfig> => {
-  const defaults = app === 'seller' ? DEFAULT_SELLER_BRANDING : DEFAULT_BRANDING;
+  const defaults =
+    app === 'seller'
+      ? DEFAULT_SELLER_BRANDING
+      : app === 'delivery'
+      ? DEFAULT_DELIVERY_BRANDING
+      : DEFAULT_BRANDING;
   for (const url of BRANDING_ENDPOINTS) {
     try {
       const res = await client.get(url, { params: { app } });

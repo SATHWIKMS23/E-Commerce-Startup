@@ -24,6 +24,10 @@ publicBrandingRouter.get("/seller", cache(60), (req, res) => {
     (req.params as any).app = "seller";
     return getPublicBranding(req, res);
 });
+publicBrandingRouter.get("/delivery", cache(60), (req, res) => {
+    (req.params as any).app = "delivery";
+    return getPublicBranding(req, res);
+});
 publicBrandingRouter.get("/:app", cache(60), getPublicBranding);
 
 /**
@@ -52,6 +56,15 @@ adminBrandingRouter.get("/seller", requirePermission("branding.view"), (req, res
 });
 adminBrandingRouter.put("/seller", requirePermission("branding.manage"), (req, res) => {
     (req.params as any).app = "seller";
+    return updateAdminBranding(req, res);
+});
+
+adminBrandingRouter.get("/delivery", requirePermission("branding.view"), (req, res) => {
+    (req.params as any).app = "delivery";
+    return getAdminBranding(req, res);
+});
+adminBrandingRouter.put("/delivery", requirePermission("branding.manage"), (req, res) => {
+    (req.params as any).app = "delivery";
     return updateAdminBranding(req, res);
 });
 

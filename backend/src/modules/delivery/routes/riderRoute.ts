@@ -49,13 +49,49 @@ router.get("/api/delivery/settings/public", async (req, res) => {
     return res.status(200).json({
       success: true,
       settings: {
+        brandName: settings.brandName || "AtlasBasket Delivery",
+        brandLogoUrl: settings.brandLogoUrl || null,
+        brandTagline: settings.brandTagline || "Local Delivery Fleet",
         riderPayoutPercentage: Number(settings.riderPayoutPercentage),
         baseChargePaise: settings.baseChargePaise,
         perKmChargePaise: settings.perKmChargePaise,
         minDeliveryChargePaise: settings.minDeliveryChargePaise,
-        activeCity: settings.activeCity,
+        activeCity: settings.activeCity || "Mysuru",
+        activeCities: settings.activeCities?.length ? settings.activeCities : [settings.activeCity || "Mysuru"],
         supportedVehicles: settings.supportedVehicles,
         isDeliveryServiceEnabled: settings.isDeliveryServiceEnabled,
+        hero: {
+          badge: settings.heroBadgeText || "Now Launching Across Mysuru City",
+          line1: settings.heroHeadingLine1 || "Deliver locally.",
+          line2: settings.heroHeadingLine2 || "Earn directly with every trip.",
+          description: settings.heroDescription || "Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.",
+        },
+        cards: {
+          payout: {
+            show: settings.showCardPayout ?? true,
+            value: settings.cardPayoutValue || `~${Number(settings.riderPayoutPercentage)}%`,
+            label: settings.cardPayoutLabel || "Rider Payout",
+            desc: settings.cardPayoutDesc || "Direct earnings share",
+          },
+          city: {
+            show: settings.showCardCity ?? true,
+            value: settings.cardCityValue || settings.activeCity || "Mysuru",
+            label: settings.cardCityLabel || "Active City",
+            desc: settings.cardCityDesc || "Local delivery zones",
+          },
+          fee: {
+            show: settings.showCardFee ?? true,
+            value: settings.cardFeeValue || "₹0 Free",
+            label: settings.cardFeeLabel || "Registration Fee",
+            desc: settings.cardFeeDesc || "No upfront fees",
+          },
+          vehicles: {
+            show: settings.showCardVehicles ?? true,
+            value: settings.cardVehiclesValue || "Bikes & EVs",
+            label: settings.cardVehiclesLabel || "Vehicles Welcome",
+            desc: settings.cardVehiclesDesc || "Bicycles welcome",
+          },
+        },
       },
     });
   } catch (err: any) {

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
+import { apiClient } from "@/lib/apiClient";
 import {
-  Truck,
   ShieldCheck,
   Clock,
   Wallet,
@@ -14,237 +14,265 @@ import {
   Sparkles,
   MapPin,
   ChevronRight,
+  Truck,
+  Building2,
 } from "lucide-react";
 
-export default function LandingPage() {
-  const [tripsPerDay, setTripsPerDay] = useState(14);
-  const avgEarningPerTrip = 65; // ₹65 per delivery average in Mysuru
+interface PublicSettings {
+  brandName: string;
+  brandLogoUrl: string | null;
+  brandTagline: string;
+  activeCity: string;
+  activeCities: string[];
+  hero: {
+    badge: string;
+    line1: string;
+    line2: string;
+    description: string;
+  };
+  cards: {
+    payout: { show: boolean; value: string; label: string; desc: string };
+    city: { show: boolean; value: string; label: string; desc: string };
+    fee: { show: boolean; value: string; label: string; desc: string };
+    vehicles: { show: boolean; value: string; label: string; desc: string };
+  };
+}
 
-  const dailyEarning = tripsPerDay * avgEarningPerTrip;
-  const monthlyEarning = dailyEarning * 26; // 26 working days
+export default function LandingPage() {
+  const [settings, setSettings] = useState<PublicSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiClient
+      .get("/api/delivery/settings/public")
+      .then((res) => {
+        if (isMounted && res.data?.settings) {
+          setSettings(res.data.settings);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const heroBadge = settings?.hero?.badge || "Now Launching Across Mysuru City";
+  const heroHeading1 = settings?.hero?.line1 || "Deliver locally.";
+  const heroHeading2 = settings?.hero?.line2 || "Earn directly with every trip.";
+  const heroDesc =
+    settings?.hero?.description ||
+    "Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.";
+
+  const activeCitiesList = settings?.activeCities?.length
+    ? settings.activeCities
+    : [settings?.activeCity || "Mysuru"];
+
+  // Configured Stat Cards (controlled by Admin with Toggle On/Off)
+  const cardsConfig = settings?.cards;
+  const cardsToDisplay = [
+    cardsConfig?.payout?.show !== false && {
+      key: "payout",
+      value: cardsConfig?.payout?.value || "~90%",
+      label: cardsConfig?.payout?.label || "Rider Payout",
+      desc: cardsConfig?.payout?.desc || "Direct earnings share",
+    },
+    cardsConfig?.city?.show !== false && {
+      key: "city",
+      value: cardsConfig?.city?.value || settings?.activeCity || "Mysuru",
+      label: cardsConfig?.city?.label || "Active City",
+      desc: cardsConfig?.city?.desc || `${activeCitiesList.join(", ")} zones`,
+    },
+    cardsConfig?.fee?.show !== false && {
+      key: "fee",
+      value: cardsConfig?.fee?.value || "₹0 Free",
+      label: cardsConfig?.fee?.label || "Registration Fee",
+      desc: cardsConfig?.fee?.desc || "No upfront fees",
+    },
+    cardsConfig?.vehicles?.show !== false && {
+      key: "vehicles",
+      value: cardsConfig?.vehicles?.value || "Bikes & EVs",
+      label: cardsConfig?.vehicles?.label || "Vehicles",
+      desc: cardsConfig?.vehicles?.desc || "Bicycles welcome",
+    },
+  ].filter(Boolean) as Array<{ key: string; value: string; label: string; desc: string }>;
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#090a0f] text-slate-100">
+    <div className="flex flex-col min-h-screen bg-[#07070a] text-zinc-100">
       <Navbar />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 sm:w-[550px] sm:h-[550px] bg-blue-600/10 blur-[140px] pointer-events-none rounded-full" />
+        <section className="relative overflow-hidden pt-14 pb-20 sm:pt-24 sm:pb-28">
+          {/* Single clean subtle monochrome gradient */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] bg-white/[0.025] blur-[140px] pointer-events-none rounded-full" />
 
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Now Launching Across Mysuru City</span>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
+            {/* Top Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 text-xs font-medium">
+              <Sparkles className="h-3.5 w-3.5 text-zinc-400" />
+              <span>{heroBadge}</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-              Deliver locally. <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
-                Earn directly with every trip.
+            {/* Hero Heading */}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.12]">
+              {heroHeading1} <br />
+              <span className="text-zinc-400 font-medium">
+                {heroHeading2}
               </span>
             </h1>
 
-            <p className="max-w-2xl mx-auto text-sm sm:text-base text-slate-400 leading-relaxed">
-              Join AtlasBasket Delivery. Deliver orders from top local shops and marketplace sellers in Mysuru. Enjoy flexible hours, transparent distance pricing, and fast weekly payouts.
+            {/* Hero Subtitle */}
+            <p className="max-w-2xl mx-auto text-sm sm:text-base text-zinc-400 leading-relaxed font-normal">
+              {heroDesc}
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+            {/* Action Buttons (Strictly Shadcn Style: no heavy neon glow) */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
               <Link
                 href="/register"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-xl shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white text-zinc-950 font-semibold text-sm hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center gap-2"
               >
                 <span>Register as a Rider</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/login"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-xl glass-button text-sm font-semibold flex items-center justify-center"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-sm transition-colors flex items-center justify-center"
               >
                 Rider Sign In
               </Link>
             </div>
 
-            {/* Quick stats banner */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-12 max-w-3xl mx-auto">
-              {[
-                { label: "Rider Payout", value: "~90%", desc: "Direct earnings share" },
-                { label: "Active City", value: "Mysuru", desc: "Local delivery zones" },
-                { label: "Registration Fee", value: "₹0 Free", desc: "No upfront fees" },
-                { label: "Vehicles", value: "Bikes & EVs", desc: "Bicycles welcome" },
-              ].map((stat) => (
-                <div key={stat.label} className="glass-card p-4 rounded-2xl text-left border border-white/5">
-                  <div className="text-lg sm:text-xl font-bold text-white">{stat.value}</div>
-                  <div className="text-xs font-semibold text-blue-400 mt-0.5">{stat.label}</div>
-                  <div className="text-[11px] text-slate-400 mt-1">{stat.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Interactive Earnings Calculator */}
-        <section className="py-16 border-y border-white/5 bg-slate-950/40 relative">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <div className="text-center space-y-2 mb-10">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">How much can you earn?</h2>
-              <p className="text-xs sm:text-sm text-slate-400">
-                Earnings vary based on completed trips and distance. Move the slider below to estimate.
-              </p>
-            </div>
-
-            <div className="glass-panel p-6 sm:p-10 rounded-3xl space-y-8">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-semibold text-slate-300">Deliveries per day:</span>
-                  <span className="text-xl font-bold text-blue-400">{tripsPerDay} trips / day</span>
-                </div>
-
-                <input
-                  type="range"
-                  min="4"
-                  max="30"
-                  step="1"
-                  value={tripsPerDay}
-                  onChange={(e) => setTripsPerDay(Number(e.target.value))}
-                  className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
-                />
-
-                <div className="flex justify-between text-[11px] text-slate-400 font-mono">
-                  <span>Part-time (4 trips)</span>
-                  <span>Standard (15 trips)</span>
-                  <span>Full-time (30 trips)</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/10">
-                <div className="glass-card p-5 rounded-2xl">
-                  <span className="text-xs text-slate-400 block font-medium">Estimated Daily Earnings</span>
-                  <span className="text-3xl font-extrabold text-white mt-1 block">
-                    ₹{dailyEarning.toLocaleString("en-IN")}
-                  </span>
-                  <span className="text-[11px] text-emerald-400 font-medium">₹{(avgEarningPerTrip).toFixed(0)} avg per delivery</span>
-                </div>
-
-                <div className="glass-card p-5 rounded-2xl border-blue-500/20 bg-blue-500/[0.04]">
-                  <span className="text-xs text-blue-300 block font-medium">Estimated Monthly Earnings (26 days)</span>
-                  <span className="text-3xl font-extrabold text-blue-400 mt-1 block">
-                    ₹{monthlyEarning.toLocaleString("en-IN")}
-                  </span>
-                  <span className="text-[11px] text-slate-400">Directly deposited to your bank / UPI</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section className="py-16 sm:py-24 max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="text-center space-y-2 mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">How AtlasBasket Delivery Works</h2>
-            <p className="text-xs sm:text-sm text-slate-400">Start delivering in 4 simple steps</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              {
-                step: "01",
-                title: "Register & Verify",
-                desc: "Sign up in 3 minutes. Upload your vehicle details and identity verification.",
-              },
-              {
-                step: "02",
-                title: "Go Online",
-                desc: "Switch availability online whenever you are ready to accept nearby delivery offers.",
-              },
-              {
-                step: "03",
-                title: "Pickup & Deliver",
-                desc: "Navigate to the shop, verify pickup with OTP/QR, and deliver to the customer.",
-              },
-              {
-                step: "04",
-                title: "Get Paid",
-                desc: "Watch your balance update instantly after every successful drop-off.",
-              },
-            ].map((s) => (
-              <div key={s.step} className="glass-card p-6 rounded-2xl border border-white/5 space-y-3">
-                <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">
-                  Step {s.step}
-                </span>
-                <h3 className="text-base font-bold text-white pt-1">{s.title}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Eligibility & Requirements */}
-        <section className="py-14 border-t border-white/5 bg-slate-950/30">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <div className="glass-panel p-6 sm:p-10 rounded-3xl space-y-6">
-              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-                <ShieldCheck className="h-6 w-6 text-emerald-400" />
-                <span>Rider Requirements</span>
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-300">
-                {[
-                  "Must be 18 years of age or older",
-                  "Valid driving license (Motorcycles & Scooters)",
-                  "Bicycle riders exempt from motor vehicle license",
-                  "Android or iOS smartphone with GPS",
-                  "Valid Identity Verification (Aadhaar or equivalent)",
-                  "Bank account or UPI ID for payout settlements",
-                  "Zero registration fees or hidden deductions",
-                  "Operates inside Mysuru service zones",
-                ].map((req, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-blue-400 shrink-0" />
-                    <span>{req}</span>
+            {/* Quick Stat Cards (Controlled by Admin with Toggle On/Off) */}
+            {cardsToDisplay.length > 0 && (
+              <div
+                className={`grid grid-cols-2 sm:grid-cols-${Math.min(
+                  cardsToDisplay.length,
+                  4
+                )} gap-3 pt-12 max-w-3xl mx-auto`}
+              >
+                {cardsToDisplay.map((stat) => (
+                  <div
+                    key={stat.key}
+                    className="p-4 rounded-2xl text-left bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl"
+                  >
+                    <div className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                      {stat.value}
+                    </div>
+                    <div className="text-xs font-medium text-zinc-300 mt-0.5">
+                      {stat.label}
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-1">
+                      {stat.desc}
+                    </div>
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        </section>
 
-              <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p className="text-[11px] text-slate-400">
-                  By signing up, you agree to the{" "}
-                  <Link href="/terms" className="text-blue-400 hover:underline">
-                    Rider Terms & Policies
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="text-blue-400 hover:underline">
-                    Privacy Policy
-                  </Link>
-                  .
+        {/* Operational Overview & Requirements (Strictly shadcn glassmorphic layout) */}
+        <section className="py-16 border-t border-white/[0.06] bg-white/[0.01]">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                Why Deliver with AtlasBasket?
+              </h2>
+              <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto">
+                Built specifically for local riders and neighborhood merchants in {activeCitiesList.join(", ")}.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-6 rounded-2xl bg-white/[0.025] border border-white/[0.08] space-y-3">
+                <div className="h-10 w-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <h3 className="text-base font-semibold text-white">Direct Weekly Payouts</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Earn the majority share on every delivery with zero hidden platform cut. Earnings are disbursed automatically to your registered bank account.
                 </p>
-                <Link
-                  href="/register"
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shrink-0"
-                >
-                  Apply Now
-                </Link>
               </div>
+
+              <div className="p-6 rounded-2xl bg-white/[0.025] border border-white/[0.08] space-y-3">
+                <div className="h-10 w-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <h3 className="text-base font-semibold text-white">Flexible Shifts</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Toggle Online when you want to deliver, and Go Offline when you are done. No minimum mandatory hours or penalty for logging off.
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-white/[0.025] border border-white/[0.08] space-y-3">
+                <div className="h-10 w-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <h3 className="text-base font-semibold text-white">Secure OTP Verification</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Every pickup and drop-off is cryptographically validated with merchant QR and customer OTPs, ensuring accurate delivery credit.
+                </p>
+              </div>
+            </div>
+
+            {/* Active Coverage Zones */}
+            <div className="p-6 rounded-2xl bg-white/[0.025] border border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Active Operational Zones
+                </span>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {activeCitiesList.map((city) => (
+                    <span
+                      key={city}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-xs font-medium text-white"
+                    >
+                      <MapPin className="h-3 w-3 text-zinc-400" />
+                      {city}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <Link
+                href="/register"
+                className="px-5 py-2.5 rounded-xl bg-white text-zinc-950 font-semibold text-xs hover:bg-zinc-200 transition-colors shrink-0 text-center"
+              >
+                Apply in {activeCitiesList[0] || "Mysuru"}
+              </Link>
             </div>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-8 text-center text-xs text-slate-400 space-y-2">
-        <p>© 2026 AtlasBasket Delivery Platform. All rights reserved.</p>
-        <div className="flex justify-center gap-4 text-[11px]">
-          <Link href="/terms" className="hover:text-white transition-colors">
-            Terms & Guidelines
-          </Link>
-          <span>•</span>
-          <Link href="/privacy" className="hover:text-white transition-colors">
-            Privacy Policy
-          </Link>
-          <span>•</span>
-          <Link href="/login" className="hover:text-white transition-colors">
-            Rider Login
-          </Link>
+      <footer className="border-t border-white/[0.06] py-8 bg-[#07070a] text-xs text-zinc-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-zinc-300">
+              {settings?.brandName || "AtlasBasket Delivery"}
+            </span>
+            <span>•</span>
+            <span>{activeCitiesList.join(", ")} Fleet</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Link href="/terms" className="hover:text-zinc-300 transition-colors">
+              Terms & Conditions
+            </Link>
+            <Link href="/privacy" className="hover:text-zinc-300 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/login" className="hover:text-zinc-300 transition-colors">
+              Rider Portal
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -14,7 +14,7 @@ export const parseBrandingApp = (value: unknown): BrandingApp | null => {
     if (value === undefined || value === null || value === "") return "CUSTOMER";
     if (typeof value !== "string") return null;
     const app = value.trim().toUpperCase();
-    return app === "CUSTOMER" || app === "SELLER" ? app : null;
+    return app === "CUSTOMER" || app === "SELLER" || app === "DELIVERY" ? app : null;
 };
 
 const HEX_OR_COLOR_REGEX = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{4}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$|^rgba?\([\d\s,%.-]+\)$|^hsla?\([\d\s,%.-]+\)$/i;
