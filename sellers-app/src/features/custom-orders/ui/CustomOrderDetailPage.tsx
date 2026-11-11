@@ -1,5 +1,7 @@
+'use client';
+
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { useCustomOrders } from '../hooks/useCustomOrders';
 import { customOrderService } from '../services/customOrderService';
 import type { QuotationInput } from '../services/customOrderService';
@@ -30,8 +32,9 @@ import {
 import { useConfirmStore } from '@/lib/store/confirmStore';
 
 export function CustomOrderDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const params = useParams();
+  const id = params?.id as string;
+  const router = useRouter();
   const showConfirm = useConfirmStore((state) => state.showConfirm);
 
   const {
@@ -82,7 +85,7 @@ export function CustomOrderDetailPage() {
         <div className="text-center py-16 space-y-3">
           <AlertTriangle className="mx-auto h-12 w-12 text-red-500/50" />
           <h3 className="text-base font-bold text-white/80">Request Ticket Not Found</h3>
-          <Button variant="outline" size="sm" onClick={() => navigate('/custom-orders')}>
+          <Button variant="outline" size="sm" onClick={() => router.push('/custom-orders')}>
             Back to Requests
           </Button>
         </div>
@@ -167,7 +170,7 @@ export function CustomOrderDetailPage() {
       <div className="space-y-6 max-w-5xl animate-fade-up">
         {/* Back Link */}
         <button
-          onClick={() => navigate('/custom-orders')}
+          onClick={() => router.push('/custom-orders')}
           className="inline-flex items-center text-xs font-semibold text-white/50 hover:text-white transition-colors cursor-pointer"
         >
           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />

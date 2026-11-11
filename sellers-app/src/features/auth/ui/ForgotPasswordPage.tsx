@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,7 +37,7 @@ import { useSellerLayout } from '@/lib/hooks/useSellerLayout';
 
 export function ForgotPasswordPage() {
   const { branding } = useSellerLayout();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -136,7 +139,7 @@ export function ForgotPasswordPage() {
       await authApi.resetPassword({ resetToken, newPassword: data.newPassword });
       setStep(4);
       setTimeout(() => {
-        navigate('/login');
+        router.push('/login');
       }, 3000);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || authService.formatError(err));
@@ -312,7 +315,7 @@ export function ForgotPasswordPage() {
 
           <CardFooter className="flex justify-center pt-2 pb-6 border-t border-white/5">
             <Link
-              to="/login"
+              href="/login"
               className="text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1.5"
             >
               <ArrowLeft className="h-3.5 w-3.5" />

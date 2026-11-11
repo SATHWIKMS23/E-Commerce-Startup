@@ -1,0 +1,402 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* =====================================================
+   THEME TOKENS
+   ===================================================== */
+
+@theme {
+  --color-border:               hsl(var(--border));
+  --color-input:                hsl(var(--input));
+  --color-ring:                 hsl(var(--ring));
+  --color-background:           hsl(var(--background));
+  --color-foreground:           hsl(var(--foreground));
+  --color-primary:              hsl(var(--primary));
+  --color-primary-foreground:   hsl(var(--primary-foreground));
+  --color-secondary:            hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive:          hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-muted:                hsl(var(--muted));
+  --color-muted-foreground:     hsl(var(--muted-foreground));
+  --color-accent:               hsl(var(--accent));
+  --color-accent-foreground:    hsl(var(--accent-foreground));
+  --color-popover:              hsl(var(--popover));
+  --color-popover-foreground:   hsl(var(--popover-foreground));
+  --color-card:                 hsl(var(--card));
+  --color-card-foreground:      hsl(var(--card-foreground));
+  --radius-lg:   var(--radius);
+  --radius-md:   calc(var(--radius) - 2px);
+  --radius-sm:   calc(var(--radius) - 4px);
+  --font-sans:   'Inter', sans-serif;
+}
+
+/* ─── COLOUR PALETTE: Pure Black & White ─── */
+:root {
+  /* Pure black background */
+  --background:             0 0% 4%;
+  --foreground:             0 0% 98%;
+
+  --card:                   0 0% 7%;
+  --card-foreground:        0 0% 98%;
+
+  --popover:                0 0% 7%;
+  --popover-foreground:     0 0% 98%;
+
+  /* White primary */
+  --primary:                0 0% 98%;
+  --primary-foreground:     0 0% 4%;
+
+  --secondary:              0 0% 12%;
+  --secondary-foreground:   0 0% 98%;
+
+  --muted:                  0 0% 12%;
+  --muted-foreground:       0 0% 55%;
+
+  --accent:                 0 0% 16%;
+  --accent-foreground:      0 0% 98%;
+
+  --destructive:            0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border:                 0 0% 15%;
+  --input:                  0 0% 15%;
+  --ring:                   0 0% 70%;
+
+  --radius: 0.75rem;
+
+  /* ── Glass tokens (monochrome) ── */
+  --glass-bg:          rgba(255, 255, 255, 0.04);
+  --glass-bg-hover:    rgba(255, 255, 255, 0.08);
+  --glass-border:      rgba(255, 255, 255, 0.10);
+  --glass-border-hover:rgba(255, 255, 255, 0.22);
+  --glass-shadow:      0 8px 40px rgba(0, 0, 0, 0.7);
+  --glass-blur:        blur(20px);
+  --glass-blur-sm:     blur(10px);
+
+  /* shadcn/chart/sidebar compat */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.70 0 0);
+  --chart-3: oklch(0.55 0 0);
+  --chart-4: oklch(0.40 0 0);
+  --chart-5: oklch(0.25 0 0);
+  --sidebar:                   hsl(0 0% 7%);
+  --sidebar-foreground:        hsl(0 0% 98%);
+  --sidebar-primary:           hsl(0 0% 98%);
+  --sidebar-primary-foreground:hsl(0 0% 4%);
+  --sidebar-accent:            hsl(0 0% 12%);
+  --sidebar-accent-foreground: hsl(0 0% 98%);
+  --sidebar-border:            rgba(255,255,255,0.10);
+  --sidebar-ring:              hsl(0 0% 70%);
+}
+
+.dark {
+  --background:             0 0% 4%;
+  --foreground:             0 0% 98%;
+  --card:                   0 0% 7%;
+  --card-foreground:        0 0% 98%;
+  --popover:                0 0% 7%;
+  --popover-foreground:     0 0% 98%;
+  --primary:                0 0% 98%;
+  --primary-foreground:     0 0% 4%;
+  --secondary:              0 0% 12%;
+  --secondary-foreground:   0 0% 98%;
+  --muted:                  0 0% 12%;
+  --muted-foreground:       0 0% 55%;
+  --accent:                 0 0% 16%;
+  --accent-foreground:      0 0% 98%;
+  --destructive:            0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border:                 0 0% 15%;
+  --input:                  0 0% 15%;
+  --ring:                   0 0% 70%;
+}
+
+/* =====================================================
+   BASE STYLES
+   ==================================================== */
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+    box-sizing: border-box;
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-family: 'Inter', sans-serif;
+    scroll-behavior: smooth;
+    @apply font-sans;
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    @apply bg-background text-foreground;
+  }
+}
+
+/* =====================================================
+   ANIMATE-IN UTILITIES (replaces tw-animate-css)
+   ===================================================== */
+
+@keyframes enter {
+  from { opacity: var(--tw-enter-opacity,1); transform: translate3d(var(--tw-enter-translate-x,0),var(--tw-enter-translate-y,0),0) scale3d(var(--tw-enter-scale,1),var(--tw-enter-scale,1),var(--tw-enter-scale,1)) rotate(var(--tw-enter-rotate,0)); }
+  to   { opacity:1; transform:translate3d(0,0,0) scale3d(1,1,1) rotate(0); }
+}
+@keyframes exit {
+  from { opacity:1; transform:translate3d(0,0,0) scale3d(1,1,1) rotate(0); }
+  to   { opacity: var(--tw-exit-opacity,1); transform: translate3d(var(--tw-exit-translate-x,0),var(--tw-exit-translate-y,0),0) scale3d(var(--tw-exit-scale,1),var(--tw-exit-scale,1),var(--tw-exit-scale,1)) rotate(var(--tw-exit-rotate,0)); }
+}
+.animate-in  { animation-name: enter; animation-duration: 150ms; }
+.animate-out { animation-name: exit;  animation-duration: 150ms; }
+.fade-in  { --tw-enter-opacity: 0; }
+.fade-out { --tw-exit-opacity:  0; }
+.slide-in-from-top-1    { --tw-enter-translate-y: -0.25rem; }
+.slide-in-from-top-2    { --tw-enter-translate-y: -0.5rem;  }
+.slide-in-from-bottom-2 { --tw-enter-translate-y:  0.5rem;  }
+.zoom-in-95  { --tw-enter-scale: 0.95; }
+.zoom-out-95 { --tw-exit-scale:  0.95; }
+.duration-100 { animation-duration: 100ms; }
+.duration-200 { animation-duration: 200ms; }
+.duration-300 { animation-duration: 300ms; }
+
+/* =====================================================
+   GLASSMORPHISM (MONOCHROME)
+   ===================================================== */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-sm {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur-sm);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+}
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.07);
+  border-radius: var(--radius);
+}
+.glass-hover {
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-hover:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.12);
+  transform: translateY(-3px);
+}
+.glass-input {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: hsl(var(--foreground)) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-input:focus {
+  border-color: rgba(255,255,255,0.40) !important;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.08) !important;
+  outline: none !important;
+}
+.glass-input::placeholder {
+  color: rgba(255,255,255,0.25);
+}
+
+/* =====================================================
+   BUTTON STYLES
+   ===================================================== */
+
+.btn-primary {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #ffffff;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+.btn-primary:hover {
+  background: #e5e5e5;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+}
+
+.btn-outline {
+  background: transparent;
+  color: rgba(255,255,255,0.85);
+  border: 1px solid rgba(255,255,255,0.20);
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.btn-outline:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.40);
+}
+
+/* Custom premium button styled matching customer frontend */
+.gradient-btn {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  color: #ffffff;
+  border: none;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4);
+  transition: all 0.2s ease;
+}
+.gradient-btn:hover {
+  background: linear-gradient(135deg, #b55fe6 0%, #7375e8 100%);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.6);
+  transform: translateY(-1px);
+}
+
+/* =====================================================
+   SKELETON SHIMMER
+   ===================================================== */
+
+@keyframes glass-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+.skeleton-glass {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.09) 50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 1200px 100%;
+  animation: glass-shimmer 1.8s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* =====================================================
+   STAGGER CARD ANIMATION
+   ===================================================== */
+
+@keyframes card-appear {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.card-stagger { animation: card-appear 0.4s ease both; }
+.card-stagger:nth-child(1) { animation-delay:   0ms; }
+.card-stagger:nth-child(2) { animation-delay:  70ms; }
+.card-stagger:nth-child(3) { animation-delay: 140ms; }
+.card-stagger:nth-child(4) { animation-delay: 210ms; }
+.card-stagger:nth-child(5) { animation-delay: 280ms; }
+.card-stagger:nth-child(6) { animation-delay: 350ms; }
+
+/* =====================================================
+   PAGE TRANSITIONS
+   ===================================================== */
+
+@keyframes fade-up {
+  from { opacity:0; transform:translateY(24px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.5s ease both; }
+
+@keyframes fade-in-anim {
+  from { opacity:0; }
+  to   { opacity:1; }
+}
+.animate-fade-in { animation: fade-in-anim 0.4s ease both; }
+
+/* =====================================================
+   NOISE TEXTURE OVERLAY
+   ===================================================== */
+
+.noise-bg::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  opacity:0.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* =====================================================
+   TYPOGRAPHY HELPERS
+   ===================================================== */
+
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.55) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =====================================================
+   SCROLLBAR
+   ===================================================== */
+
+::-webkit-scrollbar       { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:rgba(255,255,255,0.02); }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.10); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.25); }
+
+/* =====================================================
+   DIVIDER
+   ===================================================== */
+
+.divider {
+  border:none;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+
+/* =====================================================
+   PRINT — Seller Invoice
+   ===================================================== */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #18181b !important;
+  }
+
+  /* Hide everything except the invoice */
+  body * {
+    display: none;
+  }
+
+  #seller-invoice-print,
+  #seller-invoice-print * {
+    display: revert;
+  }
+
+  #seller-invoice-print {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #seller-invoice-print .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #seller-invoice-print tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

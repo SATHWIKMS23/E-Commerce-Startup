@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { usePayouts } from '../hooks/usePayouts';
 import { productService } from '@/features/products/services/productService';

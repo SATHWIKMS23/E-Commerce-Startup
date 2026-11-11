@@ -1,3 +1,5 @@
+'use client';
+
 import { useAnalytics } from '../hooks/useAnalytics';
 import { useProducts } from '@/features/products/hooks/useProducts';
 import { productService } from '@/features/products/services/productService';

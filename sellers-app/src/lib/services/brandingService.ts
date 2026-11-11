@@ -84,7 +84,7 @@ const cleanUrl = (url: unknown): string => {
 const resolveAssetUrl = (value: string): string => {
   const cleaned = cleanUrl(value);
   if (!cleaned) return '';
-  const backendUrl = import.meta.env.VITE_BACKEND_API_URL?.replace(/\/$/, '');
+  const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || process.env.BACKEND_API_URL || '')?.replace(/\/$/, '');
   if (!cleaned.startsWith('/') || !backendUrl) return cleaned;
   return `${backendUrl}${cleaned}`;
 };

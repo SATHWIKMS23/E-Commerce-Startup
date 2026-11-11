@@ -1,3 +1,5 @@
+'use client';
+
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { useOrders } from '@/features/orders/hooks/useOrders';
 import { ordersService } from '@/features/orders/services/ordersService';
@@ -29,7 +31,7 @@ import {
   Plus,
   Store,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useSellerLayout } from '@/lib/hooks/useSellerLayout';
 import { SellerAgreementBanner } from '@/features/shop/ui/SellerAgreementBanner';
 
@@ -38,7 +40,7 @@ export function DashboardPage() {
   const { hasShop, shop } = useShop();
   const { metrics, chartData, isLoadingMetrics } = useAnalytics();
   const { orders, isLoading: isLoadingOrders } = useOrders();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { dashboardCards, quickActions, branding } = useSellerLayout();
   const marketplaceName = branding?.marketplaceName || 'the marketplace';
 
@@ -139,10 +141,10 @@ export function DashboardPage() {
           <div className="flex gap-2">
             {hasShop && (
               <>
-                <Button onClick={() => navigate('/products')} variant="outline" size="sm">
+                <Button onClick={() => router.push('/products')} variant="outline" size="sm">
                   Manage Products
                 </Button>
-                <Button onClick={() => navigate('/orders')} size="sm">
+                <Button onClick={() => router.push('/orders')} size="sm">
                   Fulfill Orders
                 </Button>
               </>
@@ -163,10 +165,10 @@ export function DashboardPage() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 shrink-0 relative z-10 w-full md:w-auto">
-              <Button onClick={() => navigate('/profile')} variant="outline" className="text-xs font-bold w-full sm:w-auto">
+              <Button onClick={() => router.push('/profile')} variant="outline" className="text-xs font-bold w-full sm:w-auto">
                 Go to Profile
               </Button>
-              <Button onClick={() => navigate('/shop-setup')} className="text-xs font-bold w-full sm:w-auto">
+              <Button onClick={() => router.push('/shop-setup')} className="text-xs font-bold w-full sm:w-auto">
                 Create Shop Now
               </Button>
             </div>
@@ -276,7 +278,7 @@ export function DashboardPage() {
                       key={action.id}
                       variant="outline"
                       className="w-full justify-start text-[11px] h-10 border-white/5 hover:bg-white/[0.02]"
-                      onClick={() => navigate(action.path || '/dashboard')}
+                      onClick={() => router.push(action.path || '/dashboard')}
                     >
                       <Plus className="mr-2.5 h-4 w-4 text-purple-400" />
                       <span>{action.name}</span>
@@ -293,7 +295,7 @@ export function DashboardPage() {
                   <CardTitle className="text-xs font-bold text-white/90">Recent Incoming Orders</CardTitle>
                   <CardDescription>Most recent customer orders placed on your shop</CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/orders')} className="text-[11px]">
+                <Button variant="ghost" size="sm" onClick={() => router.push('/orders')} className="text-[11px]">
                   <span>View All</span>
                   <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
                 </Button>
@@ -311,7 +313,7 @@ export function DashboardPage() {
                         <div
                           key={ord.id}
                           className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.04] transition-all"
-                          onClick={() => navigate(`/orders/${ord.id}`)}
+                          onClick={() => router.push(`/orders/${ord.id}`)}
                         >
                           <div className="space-y-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -346,7 +348,7 @@ export function DashboardPage() {
                         </TableHeader>
                         <TableBody>
                           {recentOrders.map((ord) => (
-                            <TableRow key={ord.id} className="cursor-pointer" onClick={() => navigate(`/orders/${ord.id}`)}>
+                            <TableRow key={ord.id} className="cursor-pointer" onClick={() => router.push(`/orders/${ord.id}`)}>
                               <TableCell className="font-bold text-white/90 text-xs">
                                 {ord.order.orderNumber}
                               </TableCell>

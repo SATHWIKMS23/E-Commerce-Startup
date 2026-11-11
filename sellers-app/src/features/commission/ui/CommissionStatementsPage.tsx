@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance from '@/lib/axios/axiosInstance';
@@ -13,7 +15,7 @@ import {
   X,
   HelpCircle
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 
 export function CommissionStatementsPage() {
   const [selectedStatementId, setSelectedStatementId] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export function CommissionStatementsPage() {
               Audited monthly commission settlement invoices, order summaries, and payment receipts.
             </p>
           </div>
-          <Link to="/support-chat">
+          <Link href="/support-chat">
             <Button size="sm" variant="outline" className="border-white/10 text-xs text-white/80 gap-1.5">
               <HelpCircle className="h-3.5 w-3.5" />
               Dispute / Clarify Statement

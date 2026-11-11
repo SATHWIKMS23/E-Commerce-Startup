@@ -15,6 +15,7 @@ import { ArrowLeft, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useBranding } from '../context/BrandingContext';
 import { BrandLogo } from '../components/BrandLogo';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 
@@ -182,6 +183,21 @@ export const SignupScreen: React.FC = () => {
             )}
           </TouchableOpacity>
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <View style={styles.googleBtnWrap}>
+            <GoogleSignInButton
+              label="Sign up with Google"
+              onSuccess={() => navigation.goBack()}
+              onError={setError}
+              disabled={isLoading}
+            />
+          </View>
+
           <View style={styles.switchRow}>
             <Text style={styles.switchText}>Already have an account?</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
@@ -282,6 +298,25 @@ const styles = StyleSheet.create({
     color: colors.primaryForeground,
     fontSize: 14,
     fontWeight: '800',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.cardBorder,
+  },
+  dividerText: {
+    color: colors.foregroundDim,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  googleBtnWrap: {
+    marginTop: 16,
   },
   switchRow: {
     flexDirection: 'row',

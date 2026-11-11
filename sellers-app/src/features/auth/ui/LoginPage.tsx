@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +10,8 @@ import { Button } from '@/shared/components/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/shared/components/Card';
 import { Input } from '@/shared/components/Input';
 import { Store, ShieldAlert, ArrowRight } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { GoogleButton } from './GoogleButton';
 import { useConfirmStore } from '@/lib/store/confirmStore';
 
@@ -17,10 +20,11 @@ import { useSellerLayout } from '@/lib/hooks/useSellerLayout';
 export function LoginPage() {
   const { branding } = useSellerLayout();
   const { login, isLoggingIn } = useAuth();
-  const [searchParams] = useSearchParams();
-  const isExpired = searchParams.get('expired') === 'true';
+  const searchParams = useSearchParams();
+  const isExpired = searchParams?.get('expired') === 'true';
+  const urlError = searchParams?.get('error');
   const [errorMsg, setErrorMsg] = useState<string | null>(
-    isExpired ? 'Your session has expired. Please sign in again.' : null
+    isExpired ? 'Your session has expired. Please sign in again.' : (urlError || null)
   );
 
   const {
@@ -103,7 +107,7 @@ export function LoginPage() {
                 <div className="flex justify-between items-center px-1">
                   <label className="text-xs font-semibold text-white/60">Password</label>
                   <Link
-                    to="/forgot-password"
+                    href="/forgot-password"
                     className="text-[11px] text-purple-400 hover:text-purple-300 font-medium transition-colors cursor-pointer"
                   >
                     Forgot Password?
@@ -145,7 +149,7 @@ export function LoginPage() {
           <CardFooter className="flex justify-center pt-2 pb-6 border-t border-white/5">
             <p className="text-xs text-white/45">
               Don't have a seller account?{' '}
-              <Link to="/register" className="text-purple-400 hover:text-purple-300 font-semibold hover:underline">
+              <Link href="/register" className="text-purple-400 hover:text-purple-300 font-semibold hover:underline">
                 Create one now
               </Link>
             </p>

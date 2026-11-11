@@ -78,6 +78,7 @@ axiosInstance.interceptors.response.use(
 
     const isAuthEndpoint =
       url.includes('/auth/login') ||
+      url.includes('/auth/google') ||
       url.includes('/auth/refresh') ||
       url.includes('/auth/register');
 

@@ -17,6 +17,8 @@ const getAllowedOrigins = (): Set<string> => {
         process.env.CUSTOMER_FRONTEND_URL,
         process.env.SELLER_FRONTEND_URL,
         process.env.ADMIN_FRONTEND_URL,
+        process.env.DELIVERY_FRONTEND_URL,
+        process.env.FRONTEND_DELIVERY_URL,
     ].filter(Boolean).join(',').split(',').map((s) => normalizeOrigin(s.trim())).filter(Boolean);
     return new Set([...rawOrigins, ...localDevOrigins]);
 };
@@ -27,7 +29,8 @@ const SESSION_COOKIES = [
     'seller_session',
     'seller_refresh',
     'admin_session',
-    'admin_refresh'
+    'admin_refresh',
+    'delivery_partner_session'
 ];
 
 /**

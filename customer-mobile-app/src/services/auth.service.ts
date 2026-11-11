@@ -15,6 +15,24 @@ export interface User {
 }
 
 export const authService = {
+  googleLogin: async (idToken: string): Promise<{ user: User; token: string }> => {
+    const res = await axiosInstance.post(API_ROUTES.auth.google, {
+      idToken,
+      provider: 'google',
+    });
+    const { user, token, refreshToken } = res.data;
+    if (!user || !token) {
+      throw new Error('Google sign-in did not return a valid customer session.');
+    }
+
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    if (refreshToken) {
+      await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+    }
+    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    return { user, token };
+  },
+
   login: async (identifier: string, password: string):Promise<{ user: User; token: string }> => {
     const res = await axiosInstance.post(API_ROUTES.auth.login, {
       identifier,

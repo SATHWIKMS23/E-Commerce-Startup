@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { ordersService } from '../services/ordersService';
@@ -11,18 +13,18 @@ import { Button } from '@/shared/components/Button';
 import { Skeleton } from '@/shared/components/Skeleton';
 import { useUIStore } from '@/lib/store/uiStore';
 import { Search, ShoppingBag, Eye, AlertTriangle, RefreshCw, Download, Truck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import type { SellerOrder } from '../api/ordersApi';
 
 export function OrdersPage() {
   const { orders, isLoading, isError, refetch, downloadInvoice, isDownloadingInvoice, downloadShippingLabel, isDownloadingShippingLabel } = useOrders();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const navigate = useNavigate();
+  const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
 
   const handleRowClick = (orderId: string) => {
-    navigate(`/orders/${orderId}`);
+    router.push(`/orders/${orderId}`);
   };
 
   const downloadBlob = (blob: Blob, filename: string) => {

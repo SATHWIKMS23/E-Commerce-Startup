@@ -1,5 +1,7 @@
+'use client';
+
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useCustomOrders } from '../hooks/useCustomOrders';
 import { customOrderService } from '../services/customOrderService';
 import { ordersService } from '@/features/orders/services/ordersService';
@@ -16,10 +18,10 @@ export function CustomOrdersPage() {
   const { customOrders, isLoading, isError, refetch } = useCustomOrders();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleRowClick = (id: string) => {
-    navigate(`/custom-orders/${id}`);
+    router.push(`/custom-orders/${id}`);
   };
 
   const filteredOrders = customOrders.filter((o) => {

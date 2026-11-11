@@ -3,6 +3,7 @@
     "name": "AtlasBasket",
     "slug": "atlasbasket-customer",
     "version": "1.0.0",
+    "scheme": "atlasbasket-customer",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -26,6 +27,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../api/authApi';
-import { supabase } from '@/lib/supabase';
 import { useAuthBootstrapStore } from '@/lib/store/authBootstrapStore';
 import { appStorage } from '@/lib/storage';
 
@@ -59,6 +58,22 @@ export function useAuth() {
     },
   });
 
+  const googleLoginMutation = useMutation({
+    mutationFn: authApi.googleLogin,
+    onSuccess: async (data) => {
+      if (data.token) {
+        await appStorage.setItem('seller_token', data.token);
+      }
+      if (data.refreshToken) {
+        await appStorage.setItem('seller_refresh_token', data.refreshToken);
+      }
+      queryClient.clear();
+      queryClient.setQueryData(['profile'], data.user);
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['shop'] });
+    },
+  });
+
   const registerMutation = useMutation({
     mutationFn: authApi.register,
     onSuccess: async (data) => {
@@ -86,11 +101,6 @@ export function useAuth() {
     mutationFn: async () => {
       await appStorage.removeItem('seller_token');
       await appStorage.removeItem('seller_refresh_token');
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch {
-        // ignore signout errors
-      }
       try {
         await authApi.logout();
       } catch {
@@ -138,6 +148,10 @@ export function useAuth() {
     login: loginMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     loginError: loginMutation.error as Error | null,
+
+    googleLogin: googleLoginMutation.mutateAsync,
+    isGoogleLoggingIn: googleLoginMutation.isPending,
+    googleLoginError: googleLoginMutation.error as Error | null,
 
     register: registerMutation.mutateAsync,
     isRegistering: registerMutation.isPending,

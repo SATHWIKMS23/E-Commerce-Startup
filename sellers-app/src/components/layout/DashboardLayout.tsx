@@ -1,5 +1,8 @@
+'use client';
+
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useShop } from '@/features/shop/hooks/useShop';
 import { useUIStore } from '@/lib/store/uiStore';
@@ -103,7 +106,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { shop } = useShop();
   const { sidebarOpen, toggleSidebar } = useUIStore();
-  const location = useLocation();
+  const pathname = usePathname();
   const showConfirm = useConfirmStore((state) => state.showConfirm);
   const { sidebar, branding } = useSellerLayout();
   const { badges } = useSidebarBadges();
@@ -171,8 +174,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       >
         <div className="flex flex-col h-full">
           {/* Brand Logo */}
-          <NavLink
-            to="/dashboard"
+          <Link
+            href="/dashboard"
             className="h-16 flex items-center px-5 border-b border-white/5 gap-3 hover:bg-white/[0.02] transition-colors"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] border border-white/10 text-white overflow-hidden shrink-0 shadow-sm">
@@ -195,7 +198,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 {sellerPortalTagline}
               </span>
             </div>
-          </NavLink>
+          </Link>
 
           {/* Shop Selector / Indicator */}
           {shop && (
@@ -240,23 +243,22 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               if (!isAllowed) return null;
 
               const badgeCount = getBadgeForItem(itemPath, badges);
+              const isActive = pathname === itemPath || (itemPath !== '/dashboard' && itemPath !== '/' && pathname.startsWith(itemPath));
 
               return (
-                <NavLink
+                <Link
                   key={item.id || itemPath}
-                  to={itemPath}
+                  href={itemPath}
                   onClick={() => {
                     if (window.innerWidth < 768 && sidebarOpen) {
                       toggleSidebar();
                     }
                   }}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      isActive
-                        ? 'bg-purple-600/10 text-purple-400 border border-purple-500/15 shadow-sm'
-                        : 'text-white/60 hover:text-white/95 hover:bg-white/[0.03] border border-transparent'
-                    }`
-                  }
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    isActive
+                      ? 'bg-purple-600/10 text-purple-400 border border-purple-500/15 shadow-sm'
+                      : 'text-white/60 hover:text-white/95 hover:bg-white/[0.03] border border-transparent'
+                  }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span className="truncate">{item.name}</span>
@@ -265,7 +267,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                       {badgeCount > 99 ? '99+' : badgeCount}
                     </span>
                   )}
-                </NavLink>
+                </Link>
               );
             })}
           </nav>
@@ -306,17 +308,17 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <Menu className="h-5 w-5" />
             </button>
             <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs font-medium">
-              <NavLink
-                to="/dashboard"
+              <Link
+                href="/dashboard"
                 className="text-white/40 hover:text-purple-400 font-semibold transition-colors flex items-center gap-1"
               >
                 <span>{sellerPortalName}</span>
-              </NavLink>
+              </Link>
               <ChevronRight className="h-3 w-3 text-white/20 shrink-0" />
               <span className="text-white/90 font-bold capitalize select-none" aria-current="page">
-                {location.pathname === '/dashboard' || location.pathname === '/'
+                {pathname === '/dashboard' || pathname === '/'
                   ? 'Overview'
-                  : location.pathname.replace(/^\//, '').split('/')[0].replace(/-/g, ' ')}
+                  : (pathname || '').replace(/^\//, '').split('/')[0].replace(/-/g, ' ')}
               </span>
             </nav>
           </div>

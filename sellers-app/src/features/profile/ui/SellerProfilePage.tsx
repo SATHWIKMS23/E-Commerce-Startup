@@ -1,5 +1,7 @@
+'use client';
+
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useSellerProfile } from '../hooks/useSellerProfile';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/shared/components/Card';
@@ -27,7 +29,7 @@ import {
 
 export function SellerProfilePage() {
   const { profile, isLoading, isError, updateProfile, isUpdating } = useSellerProfile();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -527,7 +529,7 @@ export function SellerProfilePage() {
                 <Button
                   className="w-full"
                   variant="outline"
-                  onClick={() => navigate('/shop')}
+                  onClick={() => router.push('/shop')}
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   View Shop
@@ -535,7 +537,7 @@ export function SellerProfilePage() {
               ) : (
                 <Button
                   className="w-full"
-                  onClick={() => navigate('/shop-setup')}
+                  onClick={() => router.push('/shop-setup')}
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />
                   Create Shop

@@ -1,68 +1,80 @@
-import { useEffect, useState } from 'react';
+'use client';
+
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSession, signOut as nextAuthSignOut, signIn as nextAuthSignIn } from 'next-auth/react';
 import { authApi } from '../api/authApi';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 import { useAuthBootstrapStore } from '@/lib/store/authBootstrapStore';
-
-function useAuthReady() {
-  const [ready, setReady] = useState(false);
-  const bootstrapped = useAuthBootstrapStore((s) => s.bootstrapped);
-
-  // The profile GET must not fire before the auth bootstrap completes. The
-  // bootstrap is orchestrated in App.tsx: it restores the Supabase session and,
-  // for Google users, syncs via POST /seller/api/auth/google which stores the
-  // seller_token in localStorage. Firing the profile GET before that stores the
-  // token results in a 401 (missing token) and the user is wrongly treated as
-  // logged out. Only bootstrapped=true guarantees the token has been written
-  // (or that there is definitively no session).
-  useEffect(() => {
-    if (bootstrapped && !ready) {
-      setReady(true);
-    }
-  }, [bootstrapped, ready]);
-
-  // Reset readiness if a new bootstrap cycle begins (e.g. a sign-in/sign-out).
-  useEffect(() => {
-    if (!bootstrapped && ready) {
-      setReady(false);
-    }
-  }, [bootstrapped, ready]);
-
-  return ready;
-}
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const authReady = useAuthReady();
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const setBootstrapped = useAuthBootstrapStore((s) => s.setBootstrapped);
+
+  // Sync session tokens to localStorage on sign-in
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    if (status === 'authenticated' && session) {
+      if (session.backendToken) {
+        localStorage.setItem('seller_token', session.backendToken);
+      }
+      if (session.backendRefreshToken) {
+        localStorage.setItem('seller_refresh_token', session.backendRefreshToken);
+      }
+      setBootstrapped(true);
+    } else {
+      setBootstrapped(true);
+    }
+  }, [session, status, setBootstrapped]);
 
   // Profile Query: Single source of truth for auth state
   const profileQuery = useQuery({
     queryKey: ['profile'],
-    enabled: authReady, // Don't fire until the session bootstrap has settled
+    enabled: status !== 'loading',
     queryFn: async () => {
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('seller_token') : null;
+      if (!storedToken && !session?.backendToken) {
+        return null;
+      }
       try {
         const res = await authApi.getProfile();
         return res.user;
       } catch {
-        // Return null if unauthenticated rather than throwing to avoid error states
         return null;
       }
     },
-    staleTime: 5 * 60 * 1000, // cache for 5 minutes
-    retry: false, // Do not retry auth calls
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 
   const loginMutation = useMutation({
     mutationFn: authApi.login,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.token) {
         localStorage.setItem('seller_token', data.token);
       }
       if (data.refreshToken) {
         localStorage.setItem('seller_refresh_token', data.refreshToken);
       }
+
+      // Sync NextAuth session
+      try {
+        await nextAuthSignIn('credentials', {
+          isDirectSync: 'true',
+          userId: data.user.id,
+          email: data.user.email,
+          name: `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() || data.user.username,
+          backendToken: data.token,
+          backendRefreshToken: data.refreshToken,
+          redirect: false,
+        });
+      } catch {
+        // NextAuth sync best-effort
+      }
+
       // Clear all previous queries to avoid cache leaks across logins
       queryClient.clear();
       // Set query data directly and invalidate cache
@@ -70,22 +82,36 @@ export function useAuth() {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       // Invalidate dashboard and shop queries
       queryClient.invalidateQueries({ queryKey: ['shop'] });
-      navigate('/profile');
+      router.push('/dashboard');
     },
   });
 
   const registerMutation = useMutation({
     mutationFn: authApi.register,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.token) {
         localStorage.setItem('seller_token', data.token);
       }
       if (data.refreshToken) {
         localStorage.setItem('seller_refresh_token', data.refreshToken);
       }
-      // Clear all previous queries to avoid cache leaks across registrations
+
+      // Sync NextAuth session
+      try {
+        await nextAuthSignIn('credentials', {
+          isDirectSync: 'true',
+          userId: data.user.id,
+          email: data.user.email,
+          name: data.user.fullname,
+          backendToken: data.token,
+          backendRefreshToken: data.refreshToken,
+          redirect: false,
+        });
+      } catch {
+        // NextAuth sync best-effort
+      }
+
       queryClient.clear();
-      // Invalidate profile query to fetch new register profile
       const firstName = data.user.fullname.split(' ')[0] || '';
       const lastName = data.user.fullname.split(' ').slice(1).join(' ') || '';
       queryClient.setQueryData(['profile'], {
@@ -96,7 +122,7 @@ export function useAuth() {
         username: '',
       });
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      navigate('/profile');
+      router.push('/profile');
     },
   });
 
@@ -105,9 +131,9 @@ export function useAuth() {
       localStorage.removeItem('seller_token');
       localStorage.removeItem('seller_refresh_token');
       try {
-        await supabase.auth.signOut({ scope: 'local' });
+        await nextAuthSignOut({ redirect: false });
       } catch {
-        // Supabase session may already be expired or missing
+        // NextAuth session sign out
       }
       try {
         await authApi.logout();
@@ -120,14 +146,14 @@ export function useAuth() {
       localStorage.removeItem('seller_refresh_token');
       queryClient.setQueryData(['profile'], null);
       queryClient.clear();
-      navigate('/login');
+      router.push('/login');
     },
     onError: () => {
       localStorage.removeItem('seller_token');
       localStorage.removeItem('seller_refresh_token');
       queryClient.setQueryData(['profile'], null);
       queryClient.clear();
-      navigate('/login');
+      router.push('/login');
     },
   });
 
@@ -141,17 +167,32 @@ export function useAuth() {
 
   const deactivateMutation = useMutation({
     mutationFn: authApi.deactivateAccount,
-    onSuccess: () => {
+    onSuccess: async () => {
+      localStorage.removeItem('seller_token');
+      localStorage.removeItem('seller_refresh_token');
+      try {
+        await nextAuthSignOut({ redirect: false });
+      } catch {
+        // Ignore
+      }
       queryClient.setQueryData(['profile'], null);
       queryClient.clear();
-      navigate('/login');
+      router.push('/login');
     },
   });
 
+  const resolvedUser = profileQuery.data ?? (session?.user ? {
+    id: session.user.id,
+    email: session.user.email || '',
+    username: session.user.username || '',
+    firstName: session.user.firstName || session.user.name?.split(' ')[0] || '',
+    lastName: session.user.lastName || session.user.name?.split(' ').slice(1).join(' ') || '',
+  } : null);
+
   return {
-    user: profileQuery.data ?? null,
-    isAuthenticated: !!profileQuery.data,
-    isLoading: !authReady || profileQuery.isLoading,
+    user: resolvedUser,
+    isAuthenticated: !!resolvedUser,
+    isLoading: status === 'loading' || profileQuery.isLoading,
     isFetching: profileQuery.isFetching,
 
     login: loginMutation.mutateAsync,

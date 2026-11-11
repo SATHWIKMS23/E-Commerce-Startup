@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useIdTokenAuthRequest } from "expo-auth-session/providers/google";
+import { useIdTokenAuthRequest, discovery } from "expo-auth-session/providers/google";
+import { exchangeCodeAsync } from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Bike, LockKeyhole, Mail } from "lucide-react-native";
@@ -31,18 +32,44 @@ export function LoginScreen({ navigation }: Props) {
 
   useEffect(() => {
     if (response?.type !== "success") return;
-    const credential = response.params.id_token;
-    if (!credential) {
-      setError("Google did not return an ID token. Check your OAuth configuration.");
-      return;
-    }
     let active = true;
-    setBusy(true);
-    signInWithGoogle(credential)
-      .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "Google sign-in failed."); })
-      .finally(() => { if (active) setBusy(false); });
+
+    void (async () => {
+      let credential = response.params?.id_token || (response as any).authentication?.idToken;
+
+      // Handle authorization code exchange for installed apps
+      if (!credential && response.params?.code && request) {
+        try {
+          const effectiveId = (Platform.OS === 'android' ? androidClientId : null) || (Platform.OS === 'ios' ? iosClientId : null) || clientId;
+          const tokenResult = await exchangeCodeAsync(
+            {
+              clientId: effectiveId || clientId || '',
+              code: response.params.code,
+              redirectUri: request.redirectUri,
+              extraParams: request.codeVerifier ? { code_verifier: request.codeVerifier } : undefined,
+            },
+            discovery
+          );
+          credential = tokenResult.idToken;
+        } catch (exchangeErr: any) {
+          if (active) setError(exchangeErr?.message || "Failed to exchange Google authorization code.");
+          return;
+        }
+      }
+
+      if (!credential) {
+        if (active) setError("Google did not return an ID token. Check your OAuth configuration.");
+        return;
+      }
+
+      setBusy(true);
+      signInWithGoogle(credential)
+        .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "Google sign-in failed."); })
+        .finally(() => { if (active) setBusy(false); });
+    })();
+
     return () => { active = false; };
-  }, [response, signInWithGoogle]);
+  }, [response, request, clientId, androidClientId, iosClientId, signInWithGoogle]);
 
   const submit = async () => {
     setError("");

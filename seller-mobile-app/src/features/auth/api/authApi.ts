@@ -31,6 +31,14 @@ export interface RegisterResponse {
 }
 
 export const authApi = {
+  googleLogin: async (idToken: string): Promise<LoginResponse> => {
+    const response = await axiosInstance.post('/seller/api/auth/google', {
+      idToken,
+      provider: 'google',
+    });
+    return response.data;
+  },
+
   login: async (credentials: { identifier: string; password?: string }): Promise<LoginResponse> => {
     const response = await axiosInstance.post('/seller/api/auth/login', {
       identifier: credentials.identifier,

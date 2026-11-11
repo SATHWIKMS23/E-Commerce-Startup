@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/sha
 import { Input } from '@/shared/components/Input';
 import { Skeleton } from '@/shared/components/Skeleton';
 import { Store, ShieldAlert, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { shopApi } from '../api/shopApi';
 import { useLocationStore } from '@/lib/store/locationStore';
@@ -25,7 +27,7 @@ export function ShopSetupPage() {
   const [gstRegistered, setGstRegistered] = useState(true);
   const [gstNumber, setGstNumber] = useState('');
   const [gstDeclared, setGstDeclared] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Fetch active states & configurations from backend
   const { data: locationsConfig, isLoading: isLoadingConfig } = useQuery({
@@ -166,7 +168,7 @@ export function ShopSetupPage() {
         gstRegistered,
         gstNumber: gstRegistered ? gstNumber.trim() : undefined,
       });
-      navigate('/dashboard');
+      router.push('/dashboard');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to initialize your shop profile.');
     }

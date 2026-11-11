@@ -132,10 +132,14 @@ export const configureMiddlewares = (app: express.Express) => {
         process.env.CUSTOMER_FRONTEND_URL,
         process.env.SELLER_FRONTEND_URL,
         process.env.ADMIN_FRONTEND_URL,
+        process.env.DELIVERY_FRONTEND_URL,
+        process.env.FRONTEND_DELIVERY_URL,
         'https://atlasbasket.com',
         'https://www.atlasbasket.com',
         'https://seller.atlasbasket.com',
+        'https://sellers.atlasbasket.com',
         'https://admin.atlasbasket.com',
+        'https://delivery.atlasbasket.com',
     ].filter(Boolean).join(',').split(',').map(s => normalizeOrigin(s.trim())).filter(Boolean);
 
     const localDevOrigins = [

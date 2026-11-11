@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { useOrders } from '../hooks/useOrders';
 import { useFileUpload } from '../../storage/hooks/useFileUpload';
 import { ordersService } from '../services/ordersService';
@@ -30,8 +32,9 @@ import {
 } from 'lucide-react';
 
 export function OrderDetailPage() {
-  const { orderId } = useParams<{ orderId: string }>();
-  const navigate = useNavigate();
+  const params = useParams();
+  const orderId = params?.orderId as string;
+  const router = useRouter();
 
   const {
     order,
@@ -148,7 +151,7 @@ export function OrderDetailPage() {
           <AlertTriangle className="mx-auto h-12 w-12 text-red-500/50" />
           <h3 className="text-base font-bold text-white/80">Error Loading Order</h3>
           <p className="text-xs text-white/40">{errorDetails?.message || 'An unexpected error occurred'}</p>
-          <Button variant="outline" size="sm" onClick={() => navigate('/orders')}>
+          <Button variant="outline" size="sm" onClick={() => router.push('/orders')}>
             Back to Orders
           </Button>
         </div>
@@ -162,7 +165,7 @@ export function OrderDetailPage() {
         <div className="text-center py-16 space-y-3">
           <AlertTriangle className="mx-auto h-12 w-12 text-red-500/50" />
           <h3 className="text-base font-bold text-white/80">Order Not Found</h3>
-          <Button variant="outline" size="sm" onClick={() => navigate('/orders')}>
+          <Button variant="outline" size="sm" onClick={() => router.push('/orders')}>
             Back to Orders
           </Button>
         </div>
@@ -275,7 +278,7 @@ export function OrderDetailPage() {
       <div className="space-y-6 max-w-5xl animate-fade-up">
         {/* Back Link */}
         <button
-          onClick={() => navigate('/orders')}
+          onClick={() => router.push('/orders')}
           className="inline-flex items-center text-xs font-semibold text-white/50 hover:text-white transition-colors cursor-pointer"
         >
           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />

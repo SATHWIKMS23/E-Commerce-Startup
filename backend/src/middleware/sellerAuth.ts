@@ -82,9 +82,8 @@ export const sellerAuth = async (req: Request, res: Response, next: NextFunction
       }
     }
 
-    // 2) If not an app JWT, verify it as a Supabase user access token against
-    //    the SAME Supabase project (issuer = <SUPABASE_URL>/auth/v1).
-    if (!identity) {
+    // 2) Optional legacy Supabase token verification fallback (only if SUPABASE_URL configured)
+    if (!identity && (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)) {
       try {
         const supabasePayload: any = await verifySupabaseAccessToken(token);
         identity = supabasePayload?.sub || supabasePayload?.user_id || null;

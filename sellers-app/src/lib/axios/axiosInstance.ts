@@ -1,9 +1,8 @@
 import axios from 'axios';
 import { useConfirmStore } from '@/lib/store/confirmStore';
-import { supabase } from '@/lib/supabase';
 
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_API_URL || '',
+  baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL || '',
   withCredentials: true,
 });
 
@@ -21,39 +20,8 @@ axiosInstance.interceptors.request.use(
       config.headers['Content-Type'] = 'application/json';
     }
 
-    // Centralized authentication. The Seller portal is authenticated by the
-    // Supabase session (Google OAuth). Every request that hits protected seller
-    // endpoints must carry the CURRENT Supabase access_token as a Bearer
-    // credential. The backend verifies this token against the Supabase project
-    // JWKS and resolves the Seller record via googleId (= Supabase user id).
-    //
-    // We always await supabase.auth.getSession() so the token is read from the
-    // live (possibly just-restored) session, never from a stale cache. For
-    // email/password sellers (no Supabase session) we fall back to the app-signed
-    // seller_token issued by /seller/api/auth/login|register.
     if (typeof window !== 'undefined') {
-      let bearerToken: string | null = null;
-      let tokenSource: 'seller_token' | 'supabase' | 'none' = 'none';
-
-      // 1. Prioritize authoritative marketplace JWT (supports refresh & session rotation)
-      const stored = localStorage.getItem('seller_token');
-      if (stored) {
-        bearerToken = stored;
-        tokenSource = 'seller_token';
-      }
-
-      // 2. Fall back to live Supabase session during initial bootstrap
-      if (!bearerToken) {
-        try {
-          const { data } = await supabase.auth.getSession();
-          if (data.session?.access_token) {
-            bearerToken = data.session.access_token;
-            tokenSource = 'supabase';
-          }
-        } catch {
-          bearerToken = null;
-        }
-      }
+      const bearerToken = localStorage.getItem('seller_token');
 
       if (bearerToken) {
         config.headers.Authorization = `Bearer ${bearerToken}`;
@@ -61,13 +29,6 @@ axiosInstance.interceptors.request.use(
         // CDN strips the Authorization header.
         config.headers['x-seller-token'] = bearerToken;
       }
-
-      // Safe diagnostic — booleans only, never the token value.
-      console.log('[auth:request]', JSON.stringify({
-        url: `${config.baseURL ?? ''}${config.url ?? ''}`,
-        tokenSource,
-        hasAuthorization: !!bearerToken,
-      }));
     }
 
     return config;
@@ -104,7 +65,10 @@ axiosInstance.interceptors.response.use(
       url.includes('/seller/api/auth/login') ||
       url.includes('/seller/api/auth/register') ||
       url.includes('/seller/api/auth/refresh') ||
-      url.includes('/seller/api/auth/logout');
+      url.includes('/seller/api/auth/logout') ||
+      url.includes('/api/seller/login') ||
+      url.includes('/api/seller/refresh') ||
+      url.includes('/api/seller/logout');
 
     if (status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint && typeof window !== 'undefined') {
       if (isRefreshing) {
@@ -121,7 +85,7 @@ axiosInstance.interceptors.response.use(
       try {
         const currentRefreshToken = localStorage.getItem('seller_refresh_token');
         const refreshRes = await axios.post(
-          `${import.meta.env.VITE_BACKEND_API_URL || ''}/seller/api/auth/refresh`,
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL || ''}/seller/api/auth/refresh`,
           { refreshToken: currentRefreshToken || undefined },
           { withCredentials: true }
         );
@@ -148,7 +112,8 @@ axiosInstance.interceptors.response.use(
         localStorage.removeItem('seller_token');
         localStorage.removeItem('seller_refresh_token');
         try {
-          await supabase.auth.signOut({ scope: 'local' });
+          const { signOut } = await import('next-auth/react');
+          await signOut({ redirect: false });
         } catch {
           // ignore signout errors
         }

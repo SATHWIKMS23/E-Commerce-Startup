@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useReviews } from '../hooks/useReviews';
 import { ordersService } from '@/features/orders/services/ordersService';

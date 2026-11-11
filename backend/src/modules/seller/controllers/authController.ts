@@ -234,11 +234,17 @@ export const googleOAuth = async (req: Request, res: Response) => {
         if (idToken) {
             // Path 1: Raw Google id_token from NextAuth or direct Google OAuth
             try {
-                const audience = process.env.GOOGLE_CLIENT_ID;
-                if (!audience) {
+                const audiences = [
+                    process.env.GOOGLE_CLIENT_ID,
+                    process.env.GOOGLE_IOS_CLIENT_ID,
+                    process.env.GOOGLE_ANDROID_CLIENT_ID,
+                    process.env.GOOGLE_SELLER_ANDROID_CLIENT_ID,
+                    process.env.GOOGLE_SELLER_IOS_CLIENT_ID,
+                ].filter((clientId): clientId is string => Boolean(clientId));
+                if (audiences.length === 0) {
                     return res.status(500).json({ message: "Google client ID is not configured" });
                 }
-                const ticket = await googleClient.verifyIdToken({ idToken, audience });
+                const ticket = await googleClient.verifyIdToken({ idToken, audience: audiences });
                 const payload = ticket.getPayload();
                 if (!payload || !payload.email) {
                     return res.status(401).json({ message: "Invalid Google token" });
@@ -253,7 +259,7 @@ export const googleOAuth = async (req: Request, res: Response) => {
             }
         }
 
-        if (!email && accessToken) {
+        if (!email && accessToken && (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)) {
             // Path 2: Supabase access token (or Google id_token that failed verification above)
             try {
                 const payload = await verifySupabaseJwt(accessToken);

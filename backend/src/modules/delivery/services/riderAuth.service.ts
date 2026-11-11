@@ -251,9 +251,17 @@ export class RiderAuthService {
     let picture: string | undefined;
 
     try {
+      const audiences = [
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_DELIVERY_ANDROID_CLIENT_ID,
+        process.env.GOOGLE_DELIVERY_IOS_CLIENT_ID,
+        process.env.GOOGLE_ANDROID_CLIENT_ID,
+        process.env.GOOGLE_IOS_CLIENT_ID,
+      ].filter((clientId): clientId is string => Boolean(clientId));
+
       const ticket = await googleClient.verifyIdToken({
         idToken: credential,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: audiences.length > 0 ? audiences : process.env.GOOGLE_CLIENT_ID,
       });
       const payload = ticket.getPayload();
       if (payload) {

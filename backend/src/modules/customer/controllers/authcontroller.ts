@@ -9,7 +9,7 @@ import { OAuth2Client } from "google-auth-library";
 import EmailService from '../../../services/email/email.service.js';
 import { disconnectActorSockets } from '../../../services/chat/chat.service.js';
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client();
 
 async function issueCustomerSession(res: Response, customerId: string) {
     const accessToken = signAccessToken(customerId);
@@ -405,8 +405,14 @@ export const googleOAuth = async (req: Request, res: Response) => {
         } = req.body;
 
         if (idToken) {
-            const audience = process.env.GOOGLE_CLIENT_ID;
-            if (!audience) {
+            const audiences = [
+                process.env.GOOGLE_CLIENT_ID,
+                process.env.GOOGLE_IOS_CLIENT_ID,
+                process.env.GOOGLE_ANDROID_CLIENT_ID,
+                process.env.GOOGLE_CUSTOMER_ANDROID_CLIENT_ID,
+                process.env.GOOGLE_CUSTOMER_IOS_CLIENT_ID,
+            ].filter((clientId): clientId is string => Boolean(clientId));
+            if (audiences.length === 0) {
                 return res.status(500).json({
                     message: "Google client ID is not configured"
                 });
@@ -414,7 +420,7 @@ export const googleOAuth = async (req: Request, res: Response) => {
 
             const ticket = await googleClient.verifyIdToken({
                 idToken,
-                audience
+                audience: audiences
             });
 
             const payload = ticket.getPayload();

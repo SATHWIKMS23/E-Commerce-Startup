@@ -1,29 +1,31 @@
+'use client';
+
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { Loader2, Store } from 'lucide-react';
 
 export function AuthCallbackPage() {
   const { isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   useEffect(() => {
     // If auth loading is complete and user is authenticated, redirect to dashboard
     if (!isLoading && isAuthenticated) {
-      navigate('/dashboard');
+      router.push('/dashboard');
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Fallback timer: if the authentication process hangs (e.g. 10 seconds), redirect back to login
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!isAuthenticated) {
         console.warn('AuthCallbackPage: Authentication timed out. Redirecting to login...');
-        navigate('/login');
+        router.push('/login');
       }
     }, 10000);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, router]);
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-background text-foreground noise-bg py-12 px-4 sm:px-6 lg:px-8">

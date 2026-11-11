@@ -20,15 +20,25 @@ Compatible with both **iOS** and **Android**.
    cd customer-mobile-app
    ```
 
-2. Start the development server:
+2. Fill in the values in `.env` (see `.env.example`):
+   - `EXPO_PUBLIC_API_URL`: Customer backend base URL.
+   - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`: Google web OAuth client ID.
+   - `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`: platform OAuth client IDs.
+
+   Configure the same Google client IDs on the backend (`GOOGLE_CLIENT_ID`,
+   `GOOGLE_IOS_CLIENT_ID`, and `GOOGLE_ANDROID_CLIENT_ID`) so it can validate
+   the ID token audiences. Use OAuth client IDs only in the app; never put the
+   Google client secret in a mobile environment file.
+
+3. Start the development server:
    ```bash
    npx expo start
    ```
 
-3. Launch on target device:
+4. Build and launch the app on a development build or target device:
    - **Android**: Press `a` or run `npm run android`
    - **iOS**: Press `i` or run `npm run ios`
-   - **Physical Device**: Scan the QR code displayed in the terminal with the **Expo Go** camera (iOS) or within the Expo Go app (Android).
+   - OAuth redirect testing requires a development build with the `atlasbasket-customer` scheme; Expo Go cannot claim this custom OAuth callback.
 
 ---
 
@@ -86,7 +96,7 @@ The mobile app reproduces every single feature and screen from `customer-app`:
 - **Profile & Account Management**:
   - Edit personal details (name, phone).
   - Saved delivery address book: create address, set default, remove.
-  - Sign in, Sign up, Forgot password recovery, and Sign out.
+  - Email/password and Google OAuth sign-in, Sign up, Forgot password recovery, and Sign out.
 
 ---
 
@@ -103,4 +113,4 @@ Direct 1:1 mapping of `globals.css` monochrome luxury tokens:
 
 ## 🔒 Security & Scope Compliance
 
-All work is strictly isolated within the `customer-mobile-app` directory. No existing web or backend directories were altered.
+Customer Google OAuth is implemented in this app and the backend's customer token-audience validation. The seller mobile app's existing Supabase Google flow now completes its native OAuth redirect and session exchange.

@@ -3,6 +3,7 @@
     "name": "Atlas Basket Seller",
     "slug": "seller-mobile-app",
     "version": "1.0.0",
+    "scheme": "atlasbasket-seller",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -27,7 +28,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sharing"
+      "expo-sharing",
+      "expo-web-browser"
     ]
   }
 }

@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   Bell,
   Check,
@@ -58,7 +60,7 @@ function getDestinationRoute(notif: NotificationRecord): string {
 export function SellerNotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
+  const router = useRouter();
   const {
     notifications,
     unreadCount,
@@ -97,7 +99,7 @@ export function SellerNotificationDropdown() {
     }
     setIsOpen(false);
     const destination = getDestinationRoute(notif);
-    navigate(destination);
+    router.push(destination);
   };
 
   const handleSingleMarkRead = async (e: React.MouseEvent, id: string) => {
@@ -218,7 +220,7 @@ export function SellerNotificationDropdown() {
             <button
               onClick={() => {
                 setIsOpen(false);
-                navigate('/notifications');
+                router.push('/notifications');
               }}
               className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl text-xs font-bold text-white/75 hover:text-white hover:bg-white/[0.05] transition-all cursor-pointer"
             >

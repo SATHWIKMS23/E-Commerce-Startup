@@ -13,8 +13,6 @@ import { PremiumDialogContainer } from './src/components/ui/PremiumDialogContain
 import { GuidelineAcceptanceModal } from './src/components/ui/GuidelineAcceptanceModal';
 
 import { appStorage } from './src/lib/storage';
-import { supabase } from './src/lib/supabase';
-import axiosInstance from './src/lib/axios/axiosInstance';
 import { useAuthBootstrapStore } from './src/lib/store/authBootstrapStore';
 import { Colors } from './src/theme/colors';
 
@@ -40,88 +38,10 @@ export default function App() {
         // Preload AsyncStorage cache for synchronous header lookups
         await appStorage.preload();
 
-        // Listen for Supabase session changes
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-            try {
-              const existingToken = appStorage.getItemSync('seller_token');
-              if (!existingToken && session.access_token) {
-                const userMetadata = (session.user.user_metadata || {}) as Record<string, any>;
-                const fullName =
-                  userMetadata.full_name ||
-                  userMetadata.name ||
-                  [userMetadata.given_name || '', userMetadata.family_name || '']
-                    .filter(Boolean)
-                    .join(' ')
-                    .trim();
-                const firstName =
-                  userMetadata.given_name ||
-                  userMetadata.first_name ||
-                  fullName.split(' ')[0] ||
-                  '';
-                const lastName =
-                  userMetadata.family_name ||
-                  userMetadata.last_name ||
-                  fullName.split(' ').slice(1).join(' ') ||
-                  '';
-
-                const syncRes = await axiosInstance.post('/seller/api/auth/google', {
-                  accessToken: session.access_token,
-                  idToken: (session as any).id_token || undefined,
-                  provider: 'google',
-                  providerId: session.user.id,
-                  email: session.user.email,
-                  name: fullName,
-                  firstName,
-                  lastName,
-                  avatarUrl: userMetadata.avatar_url || userMetadata.picture || '',
-                });
-
-                if (syncRes.data?.token) {
-                  await appStorage.setItem('seller_token', syncRes.data.token);
-                }
-                if (syncRes.data?.refreshToken) {
-                  await appStorage.setItem('seller_refresh_token', syncRes.data.refreshToken);
-                }
-
-                queryClient.setQueryData(['profile'], syncRes.data.user);
-                queryClient.invalidateQueries({ queryKey: ['profile'] });
-                queryClient.invalidateQueries({ queryKey: ['shop'] });
-              }
-              setBootstrapped(true);
-            } catch (syncErr) {
-              console.warn('[auth:bootstrap] Google sync fallback:', syncErr);
-              setBootstrapped(true);
-            }
-          } else if (event === 'SIGNED_OUT') {
-            await appStorage.removeItem('seller_token');
-            await appStorage.removeItem('seller_refresh_token');
-            try {
-              await axiosInstance.post('/seller/api/auth/logout');
-            } catch {}
-            queryClient.setQueryData(['profile'], null);
-            queryClient.clear();
-            setBootstrapped(true);
-          } else {
-            setBootstrapped(true);
-          }
-        });
-
-        // Also check if existing token is stored to trigger bootstrap immediately
-        const token = appStorage.getItemSync('seller_token');
-        if (token) {
-          setBootstrapped(true);
-        }
-
         if (mounted) {
+          setBootstrapped(true);
           setIsInitializing(false);
         }
-
-        return () => {
-          subscription.unsubscribe();
-        };
       } catch (err) {
         console.warn('App initialization error:', err);
         if (mounted) {

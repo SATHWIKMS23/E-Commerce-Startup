@@ -3,7 +3,8 @@
  * Direct Mobile Endpoints pointing to AtlasBasket backend API
  */
 
-export const BACKEND_BASE_URL = 'https://api.atlasbasket.com';
+export const BACKEND_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '') || 'https://api.atlasbasket.com';
 
 export const API_ROUTES = {
   // ── Branding (Public & Fallback) ──────────────────────────────────────────
@@ -20,6 +21,7 @@ export const API_ROUTES = {
   // ── Auth & Profile ────────────────────────────────────────────────────────
   auth: {
     login:          `${BACKEND_BASE_URL}/users/api/auth/login`,
+    google:         `${BACKEND_BASE_URL}/users/api/auth/google`,
     register:       `${BACKEND_BASE_URL}/users/api/auth/register`,
     logout:         `${BACKEND_BASE_URL}/users/api/auth/logout`,
     refresh:        `${BACKEND_BASE_URL}/users/api/auth/refresh`,

@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { useConfirmStore } from '@/lib/store/confirmStore';
-import { supabase } from '@/lib/supabase';
 import { appStorage } from '@/lib/storage';
 import { ENV } from '@/config/env';
 
@@ -21,28 +20,8 @@ axiosInstance.interceptors.request.use(
       config.headers['Content-Type'] = 'application/json';
     }
 
-    let bearerToken: string | null = null;
-    let tokenSource: 'seller_token' | 'supabase' | 'none' = 'none';
-
-    // 1. Prioritize authoritative marketplace JWT
-    const stored = (await appStorage.getItem('seller_token')) || appStorage.getItemSync('seller_token');
-    if (stored) {
-      bearerToken = stored;
-      tokenSource = 'seller_token';
-    }
-
-    // 2. Fall back to live Supabase session during initial bootstrap
-    if (!bearerToken) {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.access_token) {
-          bearerToken = data.session.access_token;
-          tokenSource = 'supabase';
-        }
-      } catch {
-        bearerToken = null;
-      }
-    }
+    // Authoritative marketplace JWT
+    const bearerToken = (await appStorage.getItem('seller_token')) || appStorage.getItemSync('seller_token');
 
     if (bearerToken) {
       config.headers.Authorization = `Bearer ${bearerToken}`;
@@ -128,11 +107,6 @@ axiosInstance.interceptors.response.use(
 
         await appStorage.removeItem('seller_token');
         await appStorage.removeItem('seller_refresh_token');
-        try {
-          await supabase.auth.signOut({ scope: 'local' });
-        } catch {
-          // ignore signout errors
-        }
 
         return Promise.reject(refreshErr);
       } finally {

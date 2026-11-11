@@ -1,3 +1,5 @@
+'use client';
+
 import { useUIStore } from '@/lib/store/uiStore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';

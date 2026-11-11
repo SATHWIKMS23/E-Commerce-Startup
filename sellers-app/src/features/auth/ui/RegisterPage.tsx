@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +10,7 @@ import { Button } from '@/shared/components/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/shared/components/Card';
 import { Input } from '@/shared/components/Input';
 import { Store, ShieldAlert, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { GoogleButton } from './GoogleButton';
 import { useConfirmStore } from '@/lib/store/confirmStore';
 
@@ -175,7 +177,7 @@ export function RegisterPage() {
           <CardFooter className="flex justify-center pt-2 pb-6 border-t border-white/5">
             <p className="text-xs text-white/45">
               Already have an account?{' '}
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 font-semibold hover:underline">
+              <Link href="/login" className="text-purple-400 hover:text-purple-300 font-semibold hover:underline">
                 Sign In
               </Link>
             </p>

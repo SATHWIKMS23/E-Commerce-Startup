@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useNotifications } from '../hooks/useNotifications';
 import { ordersService } from '@/features/orders/services/ordersService';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -49,7 +51,7 @@ function getDestinationRoute(notif: NotificationRecord): string | null {
 export function NotificationsPage() {
   const [filter, setFilter] = useState<FilterTab>('ALL');
   const [page, setPage] = useState(1);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const queryOptions = {
     page,
@@ -87,7 +89,7 @@ export function NotificationsPage() {
     }
     const destination = getDestinationRoute(notif);
     if (destination) {
-      navigate(destination);
+      router.push(destination);
     }
   };
 
