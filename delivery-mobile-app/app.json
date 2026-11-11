@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "AtlasBasket Delivery",
+    "slug": "atlasbasket-delivery",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "atlasbasket-delivery",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "AtlasBasket Delivery uses your location to update dispatch and help navigate to deliveries."
+        }
+      ],
+      "expo-web-browser",
+      "expo-secure-store"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.atlasbasket.delivery",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "AtlasBasket Delivery uses your location to show delivery and navigation details."
+      }
+    },
+    "android": {
+      "package": "com.atlasbasket.delivery",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "userInterfaceStyle": "dark"
+    }
+  }
+}
