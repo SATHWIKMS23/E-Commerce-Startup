@@ -82,7 +82,7 @@ app.get('/api/health', (req, res) => {
 
 configureErrorHandlers(app);
 
-const PORT = Number(process.env.PORT || process.env.CUSTOMER_PORT || 3001);
+const PORT = Number(process.env.CUSTOMER_PORT || process.env.PORT || 3001);
 const HOST = process.env.HOST || '0.0.0.0';
 const server = http.createServer(app);
 setupChatWebSocketServer(server);

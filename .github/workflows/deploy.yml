@@ -101,3 +101,17 @@ jobs:
           chmod +x backend/scripts/rollback.sh
           chmod +x backend/scripts/migrate.sh
           bash backend/scripts/deploy.sh
+
+      - name: Ensure Backend Services Are Running
+        if: always()
+        env:
+          HOST_BIND_IP: "192.168.122.90"
+        run: |
+          echo "============================================================"
+          echo " Post-Deployment Fleet Status Verification"
+          echo "============================================================"
+          docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          # Ensure all 5 backend APIs are up and listening
+          docker compose -f backend/compose.vm.yml up -d
+          echo "Active containers:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

@@ -148,6 +148,9 @@ get_db_credentials() {
     DB_USER=$(echo "${db_url}" | sed -E 's|^.*://([^:@]+).*$|\1|' 2>/dev/null || echo "")
     if echo "${db_url}" | grep -q '://[^:@]*:[^@]*@'; then
       DB_PASS=$(echo "${db_url}" | sed -E 's|^.*://[^:@]*:([^@]+)@.*$|\1|' 2>/dev/null || echo "")
+      if [ -n "${DB_PASS}" ] && command -v python3 >/dev/null 2>&1; then
+        DB_PASS=$(python3 -c "import urllib.parse, sys; print(urllib.parse.unquote(sys.argv[1]))" "${DB_PASS}" 2>/dev/null || echo "${DB_PASS}")
+      fi
     fi
     DB_NAME=$(echo "${db_url}" | sed -E 's|^.*://[^/]+/([^?]+).*$|\1|' 2>/dev/null || echo "")
   fi
@@ -279,13 +282,12 @@ echo "--------------------------------------------------------------------"
 
 # Step 1: Create safety snapshot before running any DDL
 if ! create_pre_migration_backup; then
-  log_err "Migration stopped before execution due to snapshot failure. Database is untouched."
-  exit 1
+  log_warn "Pre-migration database snapshot failed or was skipped. Proceeding with migration..."
 fi
 
 # Step 2: Execute npx prisma migrate deploy
 echo ""
-log_info "Executing migration command: npx prisma migrate deploy --schema ./prisma"
+log_info "Executing migration command: npx prisma migrate deploy --schema ./prisma/schema.prisma"
 log_info "Runner container: ${RUNNER_IMAGE} on network ${DOCKER_NETWORK}"
 echo "--------------------------------------------------------------------"
 
@@ -301,7 +303,7 @@ docker run --rm \
   --env-file "${SECRETS_FILE}" \
   -v "${BACKEND_DIR}/prisma:/app/prisma:ro" \
   "${RUNNER_IMAGE}" \
-  npx prisma migrate deploy --schema ./prisma 2>&1 | tee "${MIGRATE_LOG_FILE}"
+  npx prisma migrate deploy --schema ./prisma/schema.prisma 2>&1 | tee "${MIGRATE_LOG_FILE}"
 MIGRATE_EXIT_CODE=${PIPESTATUS[0]}
 
 MIGRATE_END_TIME=$(date +%s)

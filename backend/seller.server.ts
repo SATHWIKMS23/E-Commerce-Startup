@@ -70,7 +70,7 @@ app.get('/api/health', (req, res) => {
 
 configureErrorHandlers(app);
 
-const PORT = Number(process.env.PORT || process.env.SELLER_PORT || 3002);
+const PORT = Number(process.env.SELLER_PORT || process.env.PORT || 3002);
 // Render injects the port via process.env.PORT and requires the server to bind
 // on all interfaces (0.0.0.0), not just loopback, so the container health check
 // can reach it. Binding to 0.0.0.0 is safe and expected in a PaaS container.

@@ -24,6 +24,7 @@ services:
     environment:
       HOST: 0.0.0.0
       CUSTOMER_PORT: "3001"
+      PORT: "3001"
     ports:
       - "${HOST_BIND_IP:-192.168.122.90}:3001:3001"
     networks:
@@ -41,6 +42,7 @@ services:
     environment:
       HOST: 0.0.0.0
       SELLER_PORT: "3002"
+      PORT: "3002"
     ports:
       - "${HOST_BIND_IP:-192.168.122.90}:3002:3002"
     networks:
@@ -55,6 +57,10 @@ services:
     restart: unless-stopped
     env_file:
       - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
+    environment:
+      HOST: 0.0.0.0
+      ADMIN_PORT: "3003"
+      PORT: "3003"
     ports:
       - "${HOST_BIND_IP:-192.168.122.90}:3003:3003"
     networks:
@@ -69,6 +75,10 @@ services:
     restart: unless-stopped
     env_file:
       - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
+    environment:
+      HOST: 0.0.0.0
+      DELIVERY_PORT: "3004"
+      PORT: "3004"
     ports:
       - "${HOST_BIND_IP:-192.168.122.90}:3004:3004"
     networks:
@@ -83,6 +93,10 @@ services:
     restart: unless-stopped
     env_file:
       - ${SECRETS_FILE:-/home/sathwik-atlasbasket/apps/atlasbasket/secrets/backend.env}
+    environment:
+      HOST: 0.0.0.0
+      PAYMENT_PORT: "3005"
+      PORT: "3005"
     ports:
       - "${HOST_BIND_IP:-192.168.122.90}:3005:3005"
     networks:
