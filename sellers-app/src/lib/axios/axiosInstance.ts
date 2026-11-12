@@ -1,8 +1,25 @@
 import axios from 'axios';
 import { useConfirmStore } from '@/lib/store/confirmStore';
 
+const isServer = typeof window === 'undefined';
+const serverBackendUrl = process.env.BACKEND_API_URL || 'https://seller-api.atlasbasket.com';
+
+/**
+ * Axios Instance — Proxy-Aware
+ * ─────────────────────────────────────────────────────────────────────────────
+ * On the CLIENT (browser), baseURL is empty (""). All requests use relative
+ * paths like /seller/api/... or /api/branding, which Next.js rewrites server-side
+ * to BACKEND_API_URL.
+ * This guarantees:
+ *   ✅ No CORS errors in the browser (100% same-origin requests)
+ *   ✅ No cross-origin preflight OPTIONS failures
+ *   ✅ Backend API URL is hidden from client exposure
+ *
+ * On the SERVER (SSR / NextAuth), baseURL points directly to serverBackendUrl.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL || '',
+  baseURL: isServer ? serverBackendUrl.replace(/\/$/, '') : '',
   withCredentials: true,
 });
 
@@ -85,7 +102,7 @@ axiosInstance.interceptors.response.use(
       try {
         const currentRefreshToken = localStorage.getItem('seller_refresh_token');
         const refreshRes = await axios.post(
-          `${process.env.NEXT_PUBLIC_BACKEND_API_URL || ''}/seller/api/auth/refresh`,
+          '/seller/api/auth/refresh',
           { refreshToken: currentRefreshToken || undefined },
           { withCredentials: true }
         );

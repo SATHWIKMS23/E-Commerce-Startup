@@ -88,7 +88,14 @@ export const authOptions: NextAuthOptions = {
             }),
           });
 
-          const data = await res.json();
+          const rawText = await res.text();
+          let data: any = {};
+          try {
+            data = JSON.parse(rawText);
+          } catch {
+            console.error(`[NextAuth] Seller Google auth received non-JSON response (status ${res.status}):`, rawText.slice(0, 300));
+            return `/login?error=${encodeURIComponent(`Backend service unavailable (${res.status}). Please try again later.`)}`;
+          }
 
           if (!res.ok || !data?.user) {
             console.error('[NextAuth] Seller Google login rejected by backend:', data?.message);
@@ -105,8 +112,8 @@ export const authOptions: NextAuthOptions = {
           (user as any).backendRefreshToken = data.refreshToken;
           return true;
         } catch (err: any) {
-          console.error('[NextAuth] Google signIn error:', err?.message);
-          return `/login?error=GoogleAuthFailed`;
+          console.error('[NextAuth] Google signIn error:', err?.message || err);
+          return `/login?error=${encodeURIComponent(err?.message || 'Google authentication failed')}`;
         }
       }
       return true;

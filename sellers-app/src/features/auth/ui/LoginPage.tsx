@@ -17,6 +17,15 @@ import { useConfirmStore } from '@/lib/store/confirmStore';
 
 import { useSellerLayout } from '@/lib/hooks/useSellerLayout';
 
+function formatAuthError(error: string | null): string | null {
+  if (!error) return null;
+  if (error === 'GoogleAuthFailed') return 'Google sign in failed. Please check your credentials or sign in with email.';
+  if (error === 'OAuthSignin' || error === 'OAuthCallback') return 'Unable to complete Google authentication. Please try again.';
+  if (error === 'OAuthAccountNotLinked') return 'An account already exists with this email address. Please sign in using your existing password.';
+  if (error === 'Callback') return 'Authentication callback failed. Please try again.';
+  return error;
+}
+
 export function LoginPage() {
   const { branding } = useSellerLayout();
   const { login, isLoggingIn } = useAuth();
@@ -24,7 +33,7 @@ export function LoginPage() {
   const isExpired = searchParams?.get('expired') === 'true';
   const urlError = searchParams?.get('error');
   const [errorMsg, setErrorMsg] = useState<string | null>(
-    isExpired ? 'Your session has expired. Please sign in again.' : (urlError || null)
+    isExpired ? 'Your session has expired. Please sign in again.' : formatAuthError(urlError)
   );
 
   const {
